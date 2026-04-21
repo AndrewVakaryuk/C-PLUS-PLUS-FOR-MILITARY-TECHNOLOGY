@@ -1,0 +1,14 @@
+ca-certificates
+curl
+locales
+sudo
+tzdata
+
+gcc
+clang
+clangd
+make
+cmake
+clang-format
+cmake-format
+ninja-build

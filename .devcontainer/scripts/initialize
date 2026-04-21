@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+# Create bash history file to persist the history
+export DEVCONTAINER_DATA_ON_HOST=~/.devcontainers/`basename $PWD`
+mkdir -p $DEVCONTAINER_DATA_ON_HOST
+touch $DEVCONTAINER_DATA_ON_HOST/.bash_history
