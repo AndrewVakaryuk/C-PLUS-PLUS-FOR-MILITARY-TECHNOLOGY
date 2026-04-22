@@ -12,7 +12,7 @@
 
 ## Якщо вже клонували репо раніше
 
-Якщо репо клоновано до нових оновлень (наприклад фіксів для devcontainer) - підтягнути зміни з remote. В Ubuntu/shell-терміналі:
+Якщо репо клоновано до нових оновлень (фікси для devcontainer) - підтягнути зміни. В Ubuntu/shell-терміналі:
 
 ```bash
 cd ~/projects/C-PLUS-PLUS-FOR-MILITARY-TECHNOLOGY
@@ -21,7 +21,7 @@ git pull
 
 Якщо `cd` каже "No such file or directory" - перевірити куди було клоновано раніше (за інструкцією мало бути `~/projects/`, але могло бути інакше).
 
-Потім у VS Code знов `Reopen in Container`.
+Потім у VS Code: Command Palette (Ctrl+Shift+P, на macOS Cmd+Shift+P) -> `Dev Containers: Rebuild Container`. Саме Rebuild, не Reopen - треба перебудувати образ, інакше фікси в Dockerfile не підхопляться.
 
 ## Альтернативні редактори
 

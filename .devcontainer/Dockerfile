@@ -24,9 +24,10 @@ RUN echo "ALL ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 ARG CONTAINER_USER=developer
 ARG WORKSPACE_FOLDER=/workspace
-RUN useradd -s /bin/bash -m ${CONTAINER_USER} && \
-  echo "\nexport PROMPT_COMMAND=\"history -a; history -n\n\"" >> /home/${CONTAINER_USER}/.bashrc && \
-  mkdir -p ${WORKSPACE_FOLDER} && \
-  chown -R ${CONTAINER_USER}:${CONTAINER_USER} ${WORKSPACE_FOLDER}
+
+RUN userdel -r ubuntu 2>/dev/null || true && \
+    groupdel ubuntu 2>/dev/null || true && \
+    useradd -s /bin/bash -m -u 1000 -U ${CONTAINER_USER} && \
+  echo "\nexport PROMPT_COMMAND=\"history -a; history -n\n\"" >> /home/${CONTAINER_USER}/.bashrc
 
 USER ${CONTAINER_USER}
