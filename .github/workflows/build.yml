@@ -1,0 +1,47 @@
+# GitHub Actions workflow: збірка проєкту через репівський devcontainer.
+#
+# Ключова ідея: CI використовує ТОЙ САМИЙ Dockerfile що й локально у
+# VS Code. Інакше "works on my machine" виникає постійно: локальний
+# devcontainer має одні версії тулів, CI runner інші. Тут вони однакові.
+
+name: Build
+
+# Тригери:
+# - push: запускаємо на кожен push у будь-яку гілку.
+# - pull_request: запускаємо при відкритті PR і кожному update гілки.
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    # ubuntu-latest - загальний GitHub runner з preinstalled Docker і
+    # актуальною Ubuntu. Для нашого випадку (build всередині
+    # devcontainer-а) специфічний runner не потрібен.
+    runs-on: ubuntu-latest
+
+    steps:
+      # Стандартний checkout коду. v4 - поточна стабільна major.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # devcontainers/ci - офіційний action від Microsoft, який запускає
+      # build всередині devcontainer-а. Послідовність:
+      #
+      # 1. Читає .devcontainer/devcontainer.json.
+      # 2. Підставляє ${localEnv:USER} і ${localEnv:HOME} зі змінних
+      #    середовища runner-а (на ubuntu-latest це `runner` і
+      #    `/home/runner`).
+      # 3. Будує Docker image з Dockerfile, передаючи підставлені args.
+      # 4. Монтує checkout у workspaceFolder.
+      # 5. Виконує runCmd від імені remoteUser.
+      #
+      # -G Ninja: явно обираємо Ninja-генератор. ninja-build уже є у
+      # devcontainer-і, швидший за Make на проєктах з багатьма файлами
+      # (кращий паралелізм, менше overhead-у на запуск shell-команд).
+      - name: Build inside dev container
+        uses: devcontainers/ci@v0.3
+        with:
+          runCmd: |
+            cmake -S . -B build -G Ninja
+            cmake --build build
