@@ -9,6 +9,7 @@ git
 gcc
 clang
 clangd
+clang-tidy
 make
 cmake
 clang-format

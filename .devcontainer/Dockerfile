@@ -39,6 +39,7 @@ RUN apt update && \
 # запуску - тобто вони знайдуться незалежно від того, де всередині
 # контейнера змонтовано проєкт.
 COPY .clang-format /.clang-format
+COPY .clang-tidy /.clang-tidy
 COPY .clangd /.clangd
 COPY .cmake-format.json /.cmake-format.json
 
