@@ -1,3 +1,4 @@
+# Базові пакети для стабільної роботи Ubuntu image.
 ca-certificates
 curl
 locales
@@ -6,14 +7,19 @@ tzdata
 ssh
 git
 
+# C++ toolchain і language server для редактора.
 gcc
 clang
 clangd
 clang-tidy
+
+# Інструменти для заняття 2.4: локальний і remote debug, memory diagnostics.
 gdb
 gdbserver
 gdb-multiarch
 valgrind
+
+# Інструменти збірки і форматери, які використовуються в лекціях та CI.
 make
 cmake
 clang-format
