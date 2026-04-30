@@ -1,4 +1,4 @@
-# Демо 2.4: локальний і віддалений GDB
+# Демо 2.4: debug_probe для локального і віддаленого GDB
 
 Цей приклад використовується на занятті 2.4 для показу одного циклу
 відлагодження:
@@ -18,8 +18,8 @@
 cmake --preset debug
 cmake --build --preset debug
 
-./build/debug/demos/lesson_2_4/remote_debug/debug_probe \
-  demos/lesson_2_4/remote_debug/data/good.txt
+./build/debug/demos/lesson_2_4/debug_probe/debug_probe \
+  demos/lesson_2_4/debug_probe/data/good.txt
 ```
 
 Очікуваний вивід:
@@ -34,13 +34,13 @@ health ready
 ## Консольний GDB
 
 ```bash
-gdb ./build/debug/demos/lesson_2_4/remote_debug/debug_probe
+gdb ./build/debug/demos/lesson_2_4/debug_probe/debug_probe
 ```
 
 Всередині GDB:
 
 ```text
-run demos/lesson_2_4/remote_debug/data/bad_missing_field.txt
+run demos/lesson_2_4/debug_probe/data/bad_missing_field.txt
 bt
 frame 0
 print text
@@ -54,8 +54,8 @@ quit
 
 ```bash
 valgrind --leak-check=full \
-  ./build/debug/demos/lesson_2_4/remote_debug/debug_probe \
-  demos/lesson_2_4/remote_debug/data/good.txt
+  ./build/debug/demos/lesson_2_4/debug_probe/debug_probe \
+  demos/lesson_2_4/debug_probe/data/good.txt
 ```
 
 Очікуваний сигнал: `definitely lost` memory block.
@@ -65,11 +65,11 @@ valgrind --leak-check=full \
 
 ```bash
 valgrind \
-  ./build/debug/demos/lesson_2_4/remote_debug/debug_probe \
-  demos/lesson_2_4/remote_debug/data/bad_missing_field.txt
+  ./build/debug/demos/lesson_2_4/debug_probe/debug_probe \
+  demos/lesson_2_4/debug_probe/data/bad_missing_field.txt
 ```
 
-## Cross build для Raspberry Pi
+## Крос-збірка для Raspberry Pi
 
 ```bash
 cmake --preset aarch64-debug
@@ -79,10 +79,10 @@ cmake --build --preset aarch64-debug
 ARM64 виконуваний файл:
 
 ```text
-build/aarch64-debug/demos/lesson_2_4/remote_debug/debug_probe
+build/aarch64-debug/demos/lesson_2_4/debug_probe/debug_probe
 ```
 
-## Remote run на Raspberry Pi
+## Віддалений запуск на Raspberry Pi
 
 На `satelite` потрібен `gdbserver`, але не компілятор:
 
@@ -96,18 +96,18 @@ exit
 Скопіювати виконуваний файл і дані:
 
 ```bash
-ssh satelite 'rm -rf /tmp/remote_debug_demo'
-ssh satelite 'mkdir -p /tmp/remote_debug_demo/data'
-scp build/aarch64-debug/demos/lesson_2_4/remote_debug/debug_probe \
-  satelite:/tmp/remote_debug_demo/
-scp demos/lesson_2_4/remote_debug/data/*.txt satelite:/tmp/remote_debug_demo/data/
+ssh satelite 'rm -rf /tmp/debug_probe'
+ssh satelite 'mkdir -p /tmp/debug_probe/data'
+scp build/aarch64-debug/demos/lesson_2_4/debug_probe/debug_probe \
+  satelite:/tmp/debug_probe/
+scp demos/lesson_2_4/debug_probe/data/*.txt satelite:/tmp/debug_probe/data/
 ```
 
 Запустити на цільовому пристрої:
 
 ```bash
 ssh satelite
-cd /tmp/remote_debug_demo
+cd /tmp/debug_probe
 chmod +x debug_probe
 ./debug_probe data/good.txt
 gdbserver :1234 ./debug_probe data/bad_missing_field.txt
@@ -117,7 +117,7 @@ gdbserver :1234 ./debug_probe data/bad_missing_field.txt
 крос-скомпільований виконуваний файл з debug-символами:
 
 ```bash
-gdb-multiarch build/aarch64-debug/demos/lesson_2_4/remote_debug/debug_probe
+gdb-multiarch build/aarch64-debug/demos/lesson_2_4/debug_probe/debug_probe
 ```
 
 Всередині GDB:
@@ -137,16 +137,16 @@ quit
 
 ```bash
 ulimit -c unlimited
-./build/debug/demos/lesson_2_4/remote_debug/debug_probe \
-  demos/lesson_2_4/remote_debug/data/bad_missing_field.txt
-gdb ./build/debug/demos/lesson_2_4/remote_debug/debug_probe core
+./build/debug/demos/lesson_2_4/debug_probe/debug_probe \
+  demos/lesson_2_4/debug_probe/data/bad_missing_field.txt
+gdb ./build/debug/demos/lesson_2_4/debug_probe/debug_probe core
 ```
 
 На `satelite`:
 
 ```bash
 ssh satelite
-cd /tmp/remote_debug_demo
+cd /tmp/debug_probe
 ulimit -c unlimited
 ./debug_probe data/bad_missing_field.txt
 ls -lh core*
@@ -156,23 +156,23 @@ ls -lh core*
 
 ```bash
 coredumpctl list debug_probe
-coredumpctl dump debug_probe > /tmp/remote_debug_demo/debug_probe.core
+coredumpctl dump debug_probe > /tmp/debug_probe/debug_probe.core
 ```
 
 Скопіювати core на комп'ютер і відкрити через локальний ARM64 виконуваний файл
 з debug-символами:
 
 ```bash
-scp 'satelite:/tmp/remote_debug_demo/core*' /tmp/
+scp 'satelite:/tmp/debug_probe/core*' /tmp/
 CORE_FILE=$(ls -t /tmp/core* | head -1)
-gdb-multiarch build/aarch64-debug/demos/lesson_2_4/remote_debug/debug_probe \
+gdb-multiarch build/aarch64-debug/demos/lesson_2_4/debug_probe/debug_probe \
   "$CORE_FILE"
 ```
 
 Альтернативно, якщо core було експортовано через `coredumpctl dump`:
 
 ```bash
-scp satelite:/tmp/remote_debug_demo/debug_probe.core /tmp/debug_probe.core
-gdb-multiarch build/aarch64-debug/demos/lesson_2_4/remote_debug/debug_probe \
+scp satelite:/tmp/debug_probe/debug_probe.core /tmp/debug_probe.core
+gdb-multiarch build/aarch64-debug/demos/lesson_2_4/debug_probe/debug_probe \
   /tmp/debug_probe.core
 ```

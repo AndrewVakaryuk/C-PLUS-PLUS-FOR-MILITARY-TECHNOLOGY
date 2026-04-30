@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 # Цей CMakeLists можна збирати двома способами:
 # - як частину кореневого репозиторію через add_subdirectory();
-# - окремо на target-пристрої, якщо скопійовано лише цю demo-директорію.
+# - окремо на цільовому пристрої, якщо скопійовано лише цю demo-директорію.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-  project(remote_debug_demo LANGUAGES CXX)
+  project(debug_probe LANGUAGES CXX)
 
   # Standalone-збірка використовує той самий C++20, що й основний курс.
   set(CMAKE_CXX_STANDARD 20)

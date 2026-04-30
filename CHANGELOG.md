@@ -13,7 +13,7 @@
   телеметрії з C++ бібліотекою, виконуваним файлом, проблемними вхідними
   файлами і навмисними помилками під час виконання.
   `CMakeLists.txt` для `homework_05` не додано навмисно, це частина ДЗ 5.
-- Block 2 / Lesson 2.4: demo `demos/lesson_2_4/remote_debug` для локального
+- Block 2 / Lesson 2.4: demo `demos/lesson_2_4/debug_probe` для локального
   консольного GDB, core dump, Valgrind і віддаленого GDB/gdbserver на
   Raspberry Pi / ARM64-пристрої.
 - Block 2 / Lesson 2.4: ARM64 cross-compilation preset `aarch64-debug` і
