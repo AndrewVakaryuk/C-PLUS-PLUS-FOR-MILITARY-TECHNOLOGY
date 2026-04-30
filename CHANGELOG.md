@@ -55,6 +55,12 @@
   читабельний stack trace з file:line.
 - Block 2 / Lesson 2.4: `.gitignore` ігнорує локальні `core` / `core.*`
   файли, які з'являються під час core dump demo.
+- Block 2 / Lesson 2.4: clang-tidy diagnostics у clangd вимкнено до заняття
+  2.6 через devcontainer settings і `.clangd`; конфіг і пакет clang-tidy
+  лишаються в repo/container для майбутнього ввімкнення.
+- Block 2 / Lesson 2.4: `initializeCommand` запускає
+  `.devcontainer/scripts/initialize` через `bash`, щоб копіювання файлів без
+  executable bit не ламало старт devcontainer.
 
 ## 2026-04-25
 
