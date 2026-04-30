@@ -61,6 +61,9 @@
 - Block 2 / Lesson 2.4: `initializeCommand` запускає
   `.devcontainer/scripts/initialize` через `bash`, щоб копіювання файлів без
   executable bit не ламало старт devcontainer.
+- Block 2 / Lesson 2.4: README/preps доповнено snapshot sync flow через
+  `git clone` + `tar`, `git status` і commit, щоб оновлення курс-репо не
+  залежали від ручного списку файлів.
 
 ## 2026-04-25
 
