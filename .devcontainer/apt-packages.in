@@ -13,6 +13,10 @@ clang
 clangd
 clang-tidy
 
+# Runtime-бібліотеки Clang sanitizer-ів і symbolizer для читабельного ASan/UBSan output.
+libclang-rt-18-dev
+llvm-18
+
 # Крос-тулчейн для ARM64-пристроїв: RPi4, Radxa ROCK 5B+, Jetson.
 g++-aarch64-linux-gnu
 

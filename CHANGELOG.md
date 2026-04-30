@@ -50,6 +50,11 @@
   devcontainer і запуском GDB по фактичному `core*` файлу.
 - Block 2 / Lesson 2.4: core dump README уточнює, що `ulimit -c unlimited`
   потрібно виконати у поточній shell-сесії, якщо перевірка показує `0`.
+- Block 2 / Lesson 2.4: devcontainer отримав `libclang-rt-18-dev` і
+  `llvm-18`, щоб ASan/UBSan збірка через Clang лінкувалась і показувала
+  читабельний stack trace з file:line.
+- Block 2 / Lesson 2.4: `.gitignore` ігнорує локальні `core` / `core.*`
+  файли, які з'являються під час core dump demo.
 
 ## 2026-04-25
 
