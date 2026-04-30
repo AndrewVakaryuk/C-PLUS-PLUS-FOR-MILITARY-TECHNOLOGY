@@ -123,7 +123,7 @@ gdb-multiarch build/aarch64-debug/demos/lesson_2_4/debug_probe/debug_probe
 Всередині GDB:
 
 ```text
-target remote satelite:1234
+target remote 192.168.1.12:1234
 continue
 bt
 frame 0
@@ -131,7 +131,61 @@ print text
 quit
 ```
 
+`satelite` - це SSH alias. GDB підключається не через SSH config, а через
+звичайний TCP host:port, тому для `target remote` потрібен IP або DNS-ім'я
+пристрою.
+
 ## Core dump
+
+Devcontainer для цього репозиторію запускається з runtime args для
+відлагодження:
+
+```text
+--cap-add=SYS_PTRACE
+--security-opt=seccomp=unconfined
+--ulimit=core=-1
+```
+
+Після зміни цих параметрів контейнер потрібно перестворити. Вони дають GDB
+потрібні права і прибирають ліміт на розмір core dump, але не змінюють
+політику host kernel.
+
+На WSL host перед demo можна тимчасово задати простий шаблон core-файлів:
+
+```bash
+sudo sysctl -w kernel.core_pattern='core.%e.%p'
+```
+
+Очікувана перевірка на WSL host:
+
+```bash
+cat /proc/sys/kernel/core_pattern
+# core.%e.%p
+```
+
+Після цього потрібно перестворити або заново відкрити devcontainer, щоб
+застосувались `runArgs` з `.devcontainer/devcontainer.json`. Усередині
+devcontainer перевірка має показати:
+
+```bash
+ulimit -c
+# unlimited
+
+cat /proc/sys/kernel/core_pattern
+# core.%e.%p
+```
+
+Якщо `ulimit -c` показує `0`, увімкнути core dump для поточного термінала:
+
+```bash
+ulimit -c unlimited
+ulimit -c
+```
+
+Це налаштування діє тільки для поточної shell-сесії та процесів, запущених з неї.
+
+Після перезапуску WSL це налаштування може повернутись до стандартного
+`wsl-capture-crash`.
 
 Локально:
 
@@ -139,7 +193,28 @@ quit
 ulimit -c unlimited
 ./build/debug/demos/lesson_2_4/debug_probe/debug_probe \
   demos/lesson_2_4/debug_probe/data/bad_missing_field.txt
-gdb ./build/debug/demos/lesson_2_4/debug_probe/debug_probe core
+
+CORE_FILE=$(ls -t core* | head -1)
+gdb ./build/debug/demos/lesson_2_4/debug_probe/debug_probe "$CORE_FILE"
+```
+
+Якщо файл `core` не з'явився, перевірити політику системи:
+
+```bash
+cat /proc/sys/kernel/core_pattern
+```
+
+На WSL/Docker crash може перехоплюватись системним handler-ом. Для стабільного
+локального demo можна створити core-файл із GDB після зупинки на SIGSEGV:
+
+```bash
+gdb ./build/debug/demos/lesson_2_4/debug_probe/debug_probe
+run demos/lesson_2_4/debug_probe/data/bad_missing_field.txt
+generate-core-file /tmp/debug_probe.core
+quit
+
+gdb ./build/debug/demos/lesson_2_4/debug_probe/debug_probe /tmp/debug_probe.core
+bt
 ```
 
 На `satelite`:

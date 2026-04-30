@@ -39,6 +39,17 @@
   `cmake --preset debug` і `cmake --build --preset debug`.
 - Block 2 / Lesson 2.4: CI build flow додатково перевіряє
   `aarch64-debug` cross-build.
+- Block 2 / Lesson 2.4: remote GDB інструкції уточнено: `satelite` лишається
+  SSH alias, а `target remote` використовує IP пристрою.
+- Block 2 / Lesson 2.4: core dump інструкції доповнено fallback-сценарієм для
+  WSL/Docker, де core-файл може перехоплюватись системним handler-ом.
+- Block 2 / Lesson 2.4: devcontainer runtime args доповнено `SYS_PTRACE`,
+  `seccomp=unconfined` і `core=-1` для GDB/core dump сценаріїв.
+- Block 2 / Lesson 2.4: core dump README доповнено WSL host setup через
+  `kernel.core_pattern`, перевіркою `core.%e.%p` після rebuild/reopen
+  devcontainer і запуском GDB по фактичному `core*` файлу.
+- Block 2 / Lesson 2.4: core dump README уточнює, що `ulimit -c unlimited`
+  потрібно виконати у поточній shell-сесії, якщо перевірка показує `0`.
 
 ## 2026-04-25
 
