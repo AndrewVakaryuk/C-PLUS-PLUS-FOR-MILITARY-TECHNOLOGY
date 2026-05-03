@@ -39,8 +39,35 @@ int main(int argc, char** argv) {
     double x = 0.0, y = 0.0, theta = 0.0;
 
     while (input >> timestamp_ms >> fl_ticks >> fr_ticks >> bl_ticks >> br_ticks) {
-        //TODO: apply logic
-        std::cout << timestamp_ms << " " << fl_ticks << " " << fr_ticks << " " << bl_ticks << " " << br_ticks << '\n';
+        // Per-wheel tick deltas since the previous row.
+        const long d_fl = fl_ticks - prev_fl;
+        const long d_fr = fr_ticks - prev_fr;
+        const long d_bl = bl_ticks - prev_bl;
+        const long d_br = br_ticks - prev_br;
+
+        // Front and back wheel of one side are assumed to rotate in sync;
+        // averaging them collapses the 4-wheel input into a 2-wheel model.
+        const double d_left = (d_fl + d_bl) / 2.0;
+        const double d_right = (d_fr + d_br) / 2.0;
+
+        const double dL = d_left * distance_per_tick;
+        const double dR = d_right * distance_per_tick;
+
+        // Differential drive: linear progress of the center and heading change.
+        const double d = (dL + dR) / 2.0;
+        const double dtheta = (dR - dL) / wheelbase_m;
+
+        // Midpoint integration: project along the average heading on this step.
+        x += d * std::cos(theta + dtheta / 2.0);
+        y += d * std::sin(theta + dtheta / 2.0);
+        theta += dtheta;
+
+        std::cout << timestamp_ms << ' ' << x << ' ' << y << ' ' << theta << '\n';
+
+        prev_fl = fl_ticks;
+        prev_fr = fr_ticks;
+        prev_bl = bl_ticks;
+        prev_br = br_ticks;
     }
 
     return 0;
