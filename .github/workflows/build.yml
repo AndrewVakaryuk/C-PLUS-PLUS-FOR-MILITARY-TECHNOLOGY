@@ -28,6 +28,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Compute image name
+        id: vars
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/cpp-miltech-devcontainer" >> "$GITHUB_OUTPUT"
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -37,14 +41,14 @@ jobs:
 
       - name: Try pull prebuilt devcontainer image
         continue-on-error: true
-        run: docker pull "ghcr.io/${GITHUB_REPOSITORY_OWNER}/cpp-miltech-devcontainer:latest"
+        run: docker pull "${{ steps.vars.outputs.image }}:latest"
 
       - name: Build inside dev container
         uses: devcontainers/ci@v0.3
         with:
           push: never
-          imageName: ghcr.io/${{ github.repository_owner }}/cpp-miltech-devcontainer
-          cacheFrom: ghcr.io/${{ github.repository_owner }}/cpp-miltech-devcontainer:latest
+          imageName: ${{ steps.vars.outputs.image }}
+          cacheFrom: ${{ steps.vars.outputs.image }}:latest
           runCmd: |
             cmake --preset debug
             cmake --build --preset debug
