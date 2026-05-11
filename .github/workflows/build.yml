@@ -16,41 +16,39 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   build:
-    # ubuntu-latest - загальний GitHub runner з preinstalled Docker і
-    # актуальною Ubuntu. Для нашого випадку (build всередині
-    # devcontainer-а) специфічний runner не потрібен.
     runs-on: ubuntu-latest
 
     steps:
-      # Стандартний checkout коду. v4 - поточна стабільна major.
       - name: Checkout
         uses: actions/checkout@v4
 
-      # devcontainers/ci - офіційний action від Microsoft, який запускає
-      # build всередині devcontainer-а. Послідовність:
-      #
-      # 1. Читає .devcontainer/devcontainer.json.
-      # 2. Підставляє ${localEnv:USER} і ${localEnv:HOME} зі змінних
-      #    середовища runner-а (на ubuntu-latest це `runner` і
-      #    `/home/runner`).
-      # 3. Будує Docker image з Dockerfile, передаючи підставлені args.
-      # 4. Монтує checkout у workspaceFolder.
-      # 5. Виконує runCmd від імені remoteUser.
-      #
-      # CMake preset debug тримає локальну і CI-збірку в одному місці:
-      # build/debug. Це також збігається з clangd compile_commands і
-      # VS Code debug launch config. ARM64 preset додатково перевіряє,
-      # що demo-код можна крос-компілювати для SBC target-а.
+      - name: Compute image name
+        id: vars
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/cpp-miltech-devcontainer" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try pull prebuilt devcontainer image
+        continue-on-error: true
+        run: docker pull "${{ steps.vars.outputs.image }}:latest"
+
       - name: Build inside dev container
         uses: devcontainers/ci@v0.3
         with:
-          # push: never - не публікувати built image ніде. За замовчуванням
-          # action пробує push у registry і падає з "imageName is required"
-          # бо ми не конфігуруємо registry. Image потрібен тільки локально
-          # на runner-і для runCmd.
           push: never
+          imageName: ${{ steps.vars.outputs.image }}
+          cacheFrom: ${{ steps.vars.outputs.image }}:latest
           runCmd: |
             cmake --preset debug
             cmake --build --preset debug
