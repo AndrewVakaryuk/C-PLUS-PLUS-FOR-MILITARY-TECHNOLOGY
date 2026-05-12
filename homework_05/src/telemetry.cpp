@@ -64,12 +64,15 @@ double parse_double(const char* text) {
     return value;
 }
 
-Frame parse_frame(char line[]) {
-    char* fields[EXPECTED_FIELD_COUNT] = {};
-    const int field_count = split_line(line, fields, EXPECTED_FIELD_COUNT);
-    (void)field_count;
+bool parse_frame(char line[], Frame& frame, int line_number) {
+    char* fields[EXPECTED_FIELD_COUNT + 1] = {};
+    const int field_count = split_line(line, fields, EXPECTED_FIELD_COUNT + 1);
+    if (field_count != EXPECTED_FIELD_COUNT) {
+        std::cerr << "error: line " << line_number << ": expected " << EXPECTED_FIELD_COUNT
+                  << " fields, got " << field_count << '\n';
+        return false;
+    }
 
-    Frame frame{};
     frame.timestamp_ms = parse_long(fields[0]);
     frame.seq = parse_int(fields[1]);
     frame.voltage_v = parse_double(fields[2]);
@@ -77,7 +80,7 @@ Frame parse_frame(char line[]) {
     frame.temperature_c = parse_double(fields[4]);
     frame.gps_fix = parse_int(fields[5]);
     frame.satellites = parse_int(fields[6]);
-    return frame;
+    return true;
 }
 
 double compute_frame_rate_hz(const Frame frames[], int frame_count) {
@@ -94,15 +97,23 @@ int read_frames(const char* path, Frame frames[], int max_frames) {
     }
 
     int frame_count = 0;
+    int line_number = 0;
     char line[MAX_LINE_LENGTH];
 
     while (input.getline(line, MAX_LINE_LENGTH)) {
+        ++line_number;
+
         if (line[0] == '\0') {
             continue;
         }
 
         if (frame_count < max_frames) {
-            frames[frame_count] = parse_frame(line);
+            Frame frame{};
+            if (!parse_frame(line, frame, line_number)) {
+                return -1;
+            }
+
+            frames[frame_count] = frame;
             ++frame_count;
         }
     }
