@@ -5,8 +5,35 @@
 #include <fstream>
 #include <iostream>
 
-// Starter had intentional runtime defects. Remaining issues include unsafe
-// frame-rate math, empty logs, and stricter validation from the homework spec.
+namespace {
+    bool validate_frame_fields(const Frame& frame, int line_number) {
+        if (!(frame.voltage_v > 0.0)) {
+            std::cerr << "error: invalid frame at line " << line_number
+                      << ": voltage_v must be > 0 (got " << frame.voltage_v << ")\n";
+            return false;
+        }
+
+        if (frame.temperature_c < -40.0 || frame.temperature_c > 120.0) {
+            std::cerr << "error: invalid frame at line " << line_number
+                      << ": temperature_c out of range [-40, 120] (got " << frame.temperature_c << ")\n";
+            return false;
+        }
+
+        if (frame.gps_fix != 0 && frame.gps_fix != 1) {
+            std::cerr << "error: invalid frame at line " << line_number
+                      << ": gps_fix must be 0 or 1 (got " << frame.gps_fix << ")\n";
+            return false;
+        }
+
+        if (frame.satellites < 0) {
+            std::cerr << "error: invalid frame at line " << line_number
+                      << ": satellites must be >= 0 (got " << frame.satellites << ")\n";
+            return false;
+        }
+
+        return true;
+    }
+}
 
 const int EXPECTED_FIELD_COUNT = 7;
 const int MAX_LINE_LENGTH = 256;
@@ -161,31 +188,43 @@ int read_frames(const char* path, Frame frames[], int max_frames) {
             continue;
         }
 
-        if (frame_count < max_frames) {
-            Frame frame{};
-            if (!parse_frame(line, frame, line_number)) {
+        if (frame_count >= max_frames) {
+            std::cerr << "error: input exceeds maximum of " << max_frames << " telemetry frames\n";
+            return -1;
+        }
+
+        Frame frame{};
+        if (!parse_frame(line, frame, line_number)) {
+            return -1;
+        }
+
+        if (!validate_frame_fields(frame, line_number)) {
+            return -1;
+        }
+
+        if (frame_count > 0) {
+            const Frame& prev = frames[frame_count - 1];
+            if (frame.timestamp_ms <= prev.timestamp_ms) {
+                std::cerr << "error: invalid frame at line " << line_number
+                          << ": timestamp_ms must increase (got " << frame.timestamp_ms
+                          << ", previous " << prev.timestamp_ms << ")\n";
                 return -1;
             }
-
-            if (frame_count > 0) {
-                const Frame& prev = frames[frame_count - 1];
-                if (frame.timestamp_ms <= prev.timestamp_ms) {
-                    std::cerr << "error: invalid frame at line " << line_number
-                              << ": timestamp_ms must increase (got " << frame.timestamp_ms
-                              << ", previous " << prev.timestamp_ms << ")\n";
-                    return -1;
-                }
-                if (frame.seq != prev.seq + 1) {
-                    std::cerr << "error: invalid frame at line " << line_number
-                              << ": seq must increase by 1 (got " << frame.seq << ", expected "
-                              << (prev.seq + 1) << ")\n";
-                    return -1;
-                }
+            if (frame.seq != prev.seq + 1) {
+                std::cerr << "error: invalid frame at line " << line_number
+                          << ": seq must increase by 1 (got " << frame.seq << ", expected "
+                          << (prev.seq + 1) << ")\n";
+                return -1;
             }
-
-            frames[frame_count] = frame;
-            ++frame_count;
         }
+
+        frames[frame_count] = frame;
+        ++frame_count;
+    }
+
+    if (input.fail() && !input.eof()) {
+        std::cerr << "error: line " << (line_number + 1) << ": line exceeds maximum length\n";
+        return -1;
     }
 
     if (frame_count == 0) {
