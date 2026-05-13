@@ -131,16 +131,23 @@ bool parse_frame(char line[], Frame& frame, int line_number) {
 }
 
 double compute_frame_rate_hz(const Frame frames[], int frame_count) {
-    const long elapsed_ms = frames[frame_count - 1].timestamp_ms - frames[0].timestamp_ms;
+    if (frame_count < 2) {
+        return 0.0;
+    }
 
-    return static_cast<double>((frame_count - 1) * 1000 / elapsed_ms);
+    const long elapsed_ms = frames[frame_count - 1].timestamp_ms - frames[0].timestamp_ms;
+    if (elapsed_ms <= 0) {
+        return 0.0;
+    }
+
+    return static_cast<double>(frame_count - 1) * 1000.0 / static_cast<double>(elapsed_ms);
 }
 
 int read_frames(const char* path, Frame frames[], int max_frames) {
     std::ifstream input{path};
     if (!input) {
         std::cerr << "error: failed to open input file: " << path << '\n';
-        return 0;
+        return -1;
     }
 
     int frame_count = 0;
@@ -160,9 +167,35 @@ int read_frames(const char* path, Frame frames[], int max_frames) {
                 return -1;
             }
 
+            if (frame_count > 0) {
+                const Frame& prev = frames[frame_count - 1];
+                if (frame.timestamp_ms <= prev.timestamp_ms) {
+                    std::cerr << "error: invalid frame at line " << line_number
+                              << ": timestamp_ms must increase (got " << frame.timestamp_ms
+                              << ", previous " << prev.timestamp_ms << ")\n";
+                    return -1;
+                }
+                if (frame.seq != prev.seq + 1) {
+                    std::cerr << "error: invalid frame at line " << line_number
+                              << ": seq must increase by 1 (got " << frame.seq << ", expected "
+                              << (prev.seq + 1) << ")\n";
+                    return -1;
+                }
+            }
+
             frames[frame_count] = frame;
             ++frame_count;
         }
+    }
+
+    if (frame_count == 0) {
+        std::cerr << "error: input file contains no telemetry frames\n";
+        return -1;
+    }
+
+    if (frame_count < 2) {
+        std::cerr << "error: need at least 2 telemetry frames\n";
+        return -1;
     }
 
     return frame_count;
