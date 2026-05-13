@@ -1,13 +1,12 @@
 #include "telemetry.hpp"
 
+#include <cerrno>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 
-// Debugging exercise notes:
-// this file intentionally contains four runtime defects.
-// The defects are related to malformed input shape, invalid numeric values,
-// unsafe time deltas, and empty logs. Exact locations are not marked on purpose.
+// Starter had intentional runtime defects. Remaining issues include unsafe
+// frame-rate math, empty logs, and stricter validation from the homework spec.
 
 const int EXPECTED_FIELD_COUNT = 7;
 const int MAX_LINE_LENGTH = 256;
@@ -38,30 +37,78 @@ int split_line(char line[], char* fields[], int max_fields) {
     return count;
 }
 
-long parse_long(const char* text) {
+bool parse_long(const char* text, long& out, int line_number) {
+    if (text == nullptr || *text == '\0') {
+        std::cerr << "error: invalid frame at line " << line_number << ": empty integer field\n";
+        return false;
+    }
+
     char* end = nullptr;
+    errno = 0;
     const long value = std::strtol(text, &end, 10);
 
     if (end == text) {
-        std::abort();
+        std::cerr << "error: invalid frame at line " << line_number << ": invalid integer: " << text
+                  << '\n';
+        return false;
     }
 
-    return value;
+    if (*end != '\0') {
+        std::cerr << "error: invalid frame at line " << line_number << ": invalid integer: " << text
+                  << '\n';
+        return false;
+    }
+
+    if (errno == ERANGE) {
+        std::cerr << "error: invalid frame at line " << line_number << ": integer out of range: "
+                  << text << '\n';
+        return false;
+    }
+
+    out = value;
+    return true;
 }
 
-int parse_int(const char* text) {
-    return static_cast<int>(parse_long(text));
+bool parse_int(const char* text, int& out, int line_number) {
+    long value = 0;
+    if (!parse_long(text, value, line_number)) {
+        return false;
+    }
+
+    out = static_cast<int>(value);
+    return true;
 }
 
-double parse_double(const char* text) {
+bool parse_double(const char* text, double& out, int line_number) {
+    if (text == nullptr || *text == '\0') {
+        std::cerr << "error: invalid frame at line " << line_number << ": empty number field\n";
+        return false;
+    }
+
     char* end = nullptr;
+    errno = 0;
     const double value = std::strtod(text, &end);
 
     if (end == text) {
-        std::abort();
+        std::cerr << "error: invalid frame at line " << line_number << ": invalid number: " << text
+                  << '\n';
+        return false;
     }
 
-    return value;
+    if (*end != '\0') {
+        std::cerr << "error: invalid frame at line " << line_number << ": invalid number: " << text
+                  << '\n';
+        return false;
+    }
+
+    if (errno == ERANGE) {
+        std::cerr << "error: invalid frame at line " << line_number << ": number out of range: "
+                  << text << '\n';
+        return false;
+    }
+
+    out = value;
+    return true;
 }
 
 bool parse_frame(char line[], Frame& frame, int line_number) {
@@ -73,14 +120,14 @@ bool parse_frame(char line[], Frame& frame, int line_number) {
         return false;
     }
 
-    frame.timestamp_ms = parse_long(fields[0]);
-    frame.seq = parse_int(fields[1]);
-    frame.voltage_v = parse_double(fields[2]);
-    frame.current_a = parse_double(fields[3]);
-    frame.temperature_c = parse_double(fields[4]);
-    frame.gps_fix = parse_int(fields[5]);
-    frame.satellites = parse_int(fields[6]);
-    return true;
+    // `&&` short-circuits: later fields are not parsed after the first failure.
+    return parse_long(fields[0], frame.timestamp_ms, line_number) &&
+           parse_int(fields[1], frame.seq, line_number) &&
+           parse_double(fields[2], frame.voltage_v, line_number) &&
+           parse_double(fields[3], frame.current_a, line_number) &&
+           parse_double(fields[4], frame.temperature_c, line_number) &&
+           parse_int(fields[5], frame.gps_fix, line_number) &&
+           parse_int(fields[6], frame.satellites, line_number);
 }
 
 double compute_frame_rate_hz(const Frame frames[], int frame_count) {
