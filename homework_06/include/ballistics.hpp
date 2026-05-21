@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 struct BallisticsInput {
@@ -21,7 +22,13 @@ struct DropSolution {
   double maneuver_y = 0.0;
 };
 
-enum class BallisticsError {
+struct AmmoCoefficients {
+  double mass = 0.0;
+  double drag = 0.0;
+  double lift = 0.0;
+};
+
+enum class BallisticsError : std::uint8_t {
   UnknownAmmo,
   InvalidModel,
   NonPositiveFlightTime,
@@ -33,6 +40,6 @@ struct BallisticsResult {
   DropSolution solution{};
 };
 
-bool lookup_ammo_params(std::string_view ammo_name, double& mass, double& drag, double& lift);
+bool lookup_ammo_params(std::string_view ammo_name, AmmoCoefficients &coeffs);
 
-BallisticsResult compute_drop_solution(const BallisticsInput& input);
+BallisticsResult compute_drop_solution(const BallisticsInput &input);

@@ -8,6 +8,26 @@ PRESET="${PRESET:-debug}"
 HW06_DIR="$ROOT/homework_06"
 CMAKE_FORMAT_CONFIG="${CMAKE_FORMAT_CONFIG:-/.cmake-format.json}"
 
+# clang-tidy does not read /.clang-tidy automatically; pass --config-file explicitly
+# (same idea as cmake-format + /.cmake-format.json in the devcontainer).
+resolve_clang_tidy_config() {
+    if [[ -n "${CLANG_TIDY_CONFIG:-}" && -f "$CLANG_TIDY_CONFIG" ]]; then
+        echo "$CLANG_TIDY_CONFIG"
+        return
+    fi
+    if [[ -f /.clang-tidy ]]; then
+        echo /.clang-tidy
+        return
+    fi
+    if [[ -f "$ROOT/.devcontainer/.clang-tidy" ]]; then
+        echo "$ROOT/.devcontainer/.clang-tidy"
+        return
+    fi
+    echo "Warning: no .clang-tidy found; clang-tidy uses LLVM defaults" >&2
+}
+
+CLANG_TIDY_CONFIG="$(resolve_clang_tidy_config)"
+
 cd "$ROOT"
 
 format() {
@@ -29,8 +49,22 @@ test() {
 }
 
 lint_sources() {
-    find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0 \
-        | xargs -0 -r clang-tidy -p "$BUILD_DIR"
+    local failed=0
+    local file
+
+    while IFS= read -r -d '' file; do
+        echo "clang-tidy: $file"
+        tidy_args=("$file" -p "$BUILD_DIR" --header-filter='homework_06/.*')
+        if [[ -n "$CLANG_TIDY_CONFIG" ]]; then
+            tidy_args+=(--config-file="$CLANG_TIDY_CONFIG")
+        fi
+        if ! clang-tidy "${tidy_args[@]}"; then
+            echo "clang-tidy failed for: $file" >&2
+            failed=1
+        fi
+    done < <(find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0)
+
+    return "$failed"
 }
 
 lint() {
@@ -53,6 +87,7 @@ Environment:
   BUILD_DIR              default: \$ROOT/build/debug
   PRESET                 default: debug
   CMAKE_FORMAT_CONFIG    default: /.cmake-format.json (devcontainer)
+  CLANG_TIDY_CONFIG      default: /.clang-tidy or .devcontainer/.clang-tidy
 EOF
 }
 

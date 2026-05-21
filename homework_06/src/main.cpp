@@ -6,7 +6,7 @@
 
 namespace {
 
-const char* error_message(BallisticsError error)
+const char *error_message(BallisticsError error)
 {
   switch (error) {
     case BallisticsError::UnknownAmmo:
@@ -16,12 +16,13 @@ const char* error_message(BallisticsError error)
     case BallisticsError::NonPositiveFlightTime:
       return "non-positive time of flight";
   }
+
   return "ballistics error";
 }
 
-bool read_input_file(const char* path, BallisticsInput& input, std::string& ammo_storage)
+bool read_input_file(std::string_view path, BallisticsInput &input, std::string &ammo_storage)
 {
-  std::ifstream input_file(path);
+  std::ifstream input_file{std::string(path)};
   if (!input_file.is_open()) {
     std::cerr << "Error: could not open input file '" << path << "'\n";
     return false;
@@ -41,9 +42,9 @@ bool read_input_file(const char* path, BallisticsInput& input, std::string& ammo
   return true;
 }
 
-bool write_output_file(const char* path, const DropSolution& solution)
+bool write_output_file(std::string_view path, const DropSolution &solution)
 {
-  std::ofstream output_file(path);
+  std::ofstream output_file{std::string(path)};
   if (!output_file.is_open()) {
     std::cerr << "Error: could not open output file '" << path << "'\n";
     return false;
@@ -58,10 +59,16 @@ bool write_output_file(const char* path, const DropSolution& solution)
 
 }  // namespace
 
-int main(int argc, char* argv[])
+int main(int argc, char **argv)
 {
   if (argc != 2) {
-    std::cerr << "Usage: " << (argc > 0 ? argv[0] : "ballistics_cli") << " <input-file>\n";
+    const char *program = (argc > 0 && argv[0] != nullptr) ? argv[0] : "ballistics_cli";
+    std::cerr << "Usage: " << program << " <input-file>\n";
+    return 1;
+  }
+
+  if (argv[1] == nullptr) {
+    std::cerr << "Error: missing input file path\n";
     return 1;
   }
 

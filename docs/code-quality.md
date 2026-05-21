@@ -140,8 +140,12 @@ cmake-format -i --config-file=/.cmake-format.json homework_04/CMakeLists.txt
 Lint одного C++ source-файлу:
 
 ```bash
-clang-tidy homework_04/src/main.cpp -p build/debug
+clang-tidy homework_04/src/main.cpp -p build/debug --config-file=/.clang-tidy
 ```
+
+`clang-tidy` не підхоплює `/.clang-tidy` автоматично (на відміну від того, як
+devcontainer кладе конфіг у корінь контейнера). Без `--config-file` з'являться
+зайві style/modernize "errors", які курс навмисно вимкнув у `.clang-tidy`.
 
 `-p build/debug` вказує clang-tidy, де лежить `compile_commands.json`.
 Без цього clang-tidy часто не бачить ті самі include paths, defines і compiler
