@@ -19,14 +19,9 @@
 ## Test Plan
 - [ ] `cmake --preset debug`
 - [ ] `cmake --build --preset debug`
+- [ ] `ctest --test-dir build/debug --output-on-failure`
 - [ ] Add task-specific run commands/log checks here
 
 ## Risks / Notes
 - Potential regressions:
 - Follow-ups (if any):
-
-## Bonus / Extra (optional)
-- [ ] PR template
-- [ ] Branch protection on `main`
-- [ ] GitHub Actions improvements
-- [ ] Devcontainer image publish/consume
