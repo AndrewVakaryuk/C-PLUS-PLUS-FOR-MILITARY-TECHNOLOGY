@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Repeatable quality checks for homework_06 (see docs/code-quality.md).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="${BUILD_DIR:-$ROOT/build/debug}"
+PRESET="${PRESET:-debug}"
+HW06_DIR="$ROOT/homework_06"
+CMAKE_FORMAT_CONFIG="${CMAKE_FORMAT_CONFIG:-/.cmake-format.json}"
+
+cd "$ROOT"
+
+format() {
+    find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' -o -name '*.hpp' -o -name '*.h' \) -print0 \
+        | xargs -0 -r clang-format -i
+
+    find "$HW06_DIR" \( -name 'CMakeLists.txt' -o -name '*.cmake' \) -print0 \
+        | xargs -0 -r cmake-format -i --config-file="$CMAKE_FORMAT_CONFIG"
+}
+
+build() {
+    cmake --preset "$PRESET"
+    cmake --build --preset "$PRESET"
+}
+
+test() {
+    build
+    ctest --test-dir "$BUILD_DIR" --output-on-failure
+}
+
+lint_sources() {
+    find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0 \
+        | xargs -0 -r clang-tidy -p "$BUILD_DIR"
+}
+
+lint() {
+    build
+    lint_sources
+}
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") <command>
+
+Commands:
+  format   clang-format + cmake-format for homework_06
+  build    cmake preset debug (override with PRESET=...)
+  test     build + ctest in BUILD_DIR (default: build/debug)
+  lint     build + clang-tidy on homework_06 sources
+  quality  format + build + test + lint (run before PR)
+
+Environment:
+  BUILD_DIR              default: \$ROOT/build/debug
+  PRESET                 default: debug
+  CMAKE_FORMAT_CONFIG    default: /.cmake-format.json (devcontainer)
+EOF
+}
+
+cmd="${1:-quality}"
+case "$cmd" in
+    format) format ;;
+    build) build ;;
+    test) test ;;
+    lint) lint ;;
+    quality)
+        format
+        build
+        ctest --test-dir "$BUILD_DIR" --output-on-failure
+        lint_sources
+        ;;
+    -h | --help | help) usage ;;
+    *)
+        echo "Unknown command: $cmd" >&2
+        usage >&2
+        exit 1
+        ;;
+esac
