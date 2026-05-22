@@ -2,7 +2,9 @@
 
 #include <fstream>
 #include <iostream>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -61,20 +63,19 @@ bool write_output_file(std::string_view path, const DropSolution &solution)
 
 int main(int argc, char **argv)
 {
-  if (argc != 2) {
-    const char *program = (argc > 0 && argv[0] != nullptr) ? argv[0] : "ballistics_cli";
+  const std::span args(argv, static_cast<std::size_t>(argc));
+
+  if (args.size() != 2) {
+    const std::string_view program = args.empty() ? std::string_view{"ballistics_cli"} : std::string_view{args.front()};
     std::cerr << "Usage: " << program << " <input-file>\n";
     return 1;
   }
 
-  if (argv[1] == nullptr) {
-    std::cerr << "Error: missing input file path\n";
-    return 1;
-  }
+  const std::string_view input_path{args[1]};
 
   BallisticsInput input{};
   std::string ammo_storage;
-  if (!read_input_file(argv[1], input, ammo_storage)) {
+  if (!read_input_file(input_path, input, ammo_storage)) {
     return 1;
   }
 

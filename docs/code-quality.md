@@ -90,6 +90,30 @@ Task для `clang-tidy` активного C++ source-файлу:
 Command Palette -> Tasks: Run Task -> Quality: clang-tidy active file
 ```
 
+## Скрипт `scripts/check-quality` (homework_06)
+
+З кореня репо або з будь-якої підпапки (скрипт сам знаходить `ROOT`):
+
+```bash
+./scripts/check-quality config   # який .clang-tidy і build dir використовуються
+./scripts/check-quality lint     # build + clang-tidy для homework_06
+./scripts/check-quality quality  # format + build + test + lint
+```
+
+Скрипт передає `--config-file` явно. У devcontainer він бере
+**`.devcontainer/.clang-tidy` з git** (bind mount), а не застарілий `/.clang-tidy`
+з Docker image — після `git pull` rebuild контейнера для lint-правил не обов'язковий.
+
+Якщо lint все одно скаржиться на `readability-identifier-naming` або
+`modernize-use-trailing-return-type`, перевірити:
+
+```bash
+./scripts/check-quality config
+```
+
+Очікується `clang-tidy config: .../.devcontainer/.clang-tidy` і
+`readability-identifier-naming: disabled (expected)`.
+
 ## Мінімальний цикл перед PR
 
 ```bash
