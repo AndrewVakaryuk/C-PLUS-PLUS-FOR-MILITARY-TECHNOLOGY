@@ -12,8 +12,13 @@ using json = nlohmann::json;
 #define M_PI 3.14159265358979323846
 #endif
 
+#ifndef ENABLE_LOG
 #define ENABLE_LOG 1
+#endif
+
+#ifndef ENABLE_DEBUG
 #define ENABLE_DEBUG 0
+#endif
 
 #if ENABLE_LOG
 #define LOG(msg) std::cout << "[LOG] " << msg << std::endl

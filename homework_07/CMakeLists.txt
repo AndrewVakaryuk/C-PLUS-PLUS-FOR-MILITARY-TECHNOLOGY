@@ -18,3 +18,28 @@ target_compile_definitions(
 )
 
 target_compile_options(homework_07_baseline PRIVATE -Wall -Wextra -pedantic)
+
+if(NOT CMAKE_CROSSCOMPILING)
+    include(FetchContent)
+    include(GoogleTest)
+
+    FetchContent_Declare(
+        googletest URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+                       DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    FetchContent_MakeAvailable(googletest)
+
+    add_executable(homework_07_baseline_tests tests/baseline_tests.cpp)
+    target_include_directories(homework_07_baseline_tests PRIVATE include)
+    target_compile_definitions(
+        homework_07_baseline_tests
+        PRIVATE
+            HW7_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+            HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output"
+            ENABLE_LOG=0
+            ENABLE_DEBUG=0
+    )
+    target_compile_options(homework_07_baseline_tests PRIVATE -Wall -Wextra -pedantic)
+    target_link_libraries(homework_07_baseline_tests PRIVATE GTest::gtest_main)
+
+    gtest_discover_tests(homework_07_baseline_tests DISCOVERY_MODE PRE_TEST)
+endif()
