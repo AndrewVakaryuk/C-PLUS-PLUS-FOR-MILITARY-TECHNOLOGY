@@ -12,11 +12,8 @@ add_executable(homework_07_baseline src/main.cpp)
 target_include_directories(homework_07_baseline PRIVATE include)
 
 target_compile_definitions(
-    homework_07_baseline
-    PRIVATE
-        HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
-        HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}"
-)
+    homework_07_baseline PRIVATE HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
+                                 HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 
 target_compile_options(homework_07_baseline PRIVATE -Wall -Wextra -pedantic)
 
@@ -33,13 +30,11 @@ if(NOT CMAKE_CROSSCOMPILING)
     target_include_directories(homework_07_baseline_tests PRIVATE include)
     target_compile_definitions(
         homework_07_baseline_tests
-        PRIVATE
-            HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
-            HW7_SCENARIOS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/data"
-            HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output"
-            ENABLE_LOG=0
-            ENABLE_DEBUG=0
-    )
+        PRIVATE HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
+                HW7_SCENARIOS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/data"
+                HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output"
+                ENABLE_LOG=0
+                ENABLE_DEBUG=0)
     target_compile_options(homework_07_baseline_tests PRIVATE -Wall -Wextra -pedantic)
     target_link_libraries(homework_07_baseline_tests PRIVATE GTest::gtest_main)
 

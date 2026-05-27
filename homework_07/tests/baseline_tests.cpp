@@ -1,6 +1,6 @@
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -18,8 +18,10 @@ namespace fs = std::filesystem;
 namespace {
 
 class ScopedEnvVar {
- public:
-  ScopedEnvVar(const char *name, const std::string &value) : name_(name) {
+public:
+  ScopedEnvVar(const char *name, const std::string &value)
+    : name_(name)
+  {
     const char *existing = std::getenv(name_);
     if (existing != nullptr) {
       had_old_value_ = true;
@@ -28,21 +30,24 @@ class ScopedEnvVar {
     setenv(name_, value.c_str(), 1);
   }
 
-  ~ScopedEnvVar() {
+  ~ScopedEnvVar()
+  {
     if (had_old_value_) {
       setenv(name_, old_value_.c_str(), 1);
-    } else {
+    }
+    else {
       unsetenv(name_);
     }
   }
 
- private:
+private:
   const char *name_;
   bool had_old_value_ = false;
   std::string old_value_;
 };
 
-std::vector<std::string> allScenarioNames() {
+std::vector<std::string> allScenarioNames()
+{
   return {
     "base-circle",
     "elliptical-trajectories",
@@ -57,11 +62,13 @@ std::vector<std::string> allScenarioNames() {
   };
 }
 
-std::string scenarioDataDir(const std::string &scenarioName) {
+std::string scenarioDataDir(const std::string &scenarioName)
+{
   return (fs::path(HW7_SCENARIOS_ROOT) / scenarioName).string();
 }
 
-std::string scenarioOutputDir(const std::string &scenarioName) {
+std::string scenarioOutputDir(const std::string &scenarioName)
+{
   return (fs::path(HW7_OUTPUT_DIR) / "scenarios" / scenarioName).string();
 }
 
@@ -202,6 +209,4 @@ TEST_P(Homework07ScenarioRunTest, ScenarioProducesSimulationJson)
   ASSERT_FALSE(simulation.at("steps").empty()) << "Scenario: " << scenarioName;
 }
 
-INSTANTIATE_TEST_SUITE_P(Homework07AllScenarios,
-                         Homework07ScenarioRunTest,
-                         ::testing::ValuesIn(allScenarioNames()));
+INSTANTIATE_TEST_SUITE_P(Homework07AllScenarios, Homework07ScenarioRunTest, ::testing::ValuesIn(allScenarioNames()));

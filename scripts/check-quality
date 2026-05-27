@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Repeatable quality checks for homework_06 (see docs/code-quality.md).
+# Repeatable quality checks for selected homework directories.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-$ROOT/build/debug}"
 PRESET="${PRESET:-debug}"
-HW06_DIR="$ROOT/homework_06"
+QUALITY_DIRS_RAW="${QUALITY_DIRS:-homework_06 homework_07}"
 CMAKE_FORMAT_CONFIG="${CMAKE_FORMAT_CONFIG:-/.cmake-format.json}"
 
 # clang-tidy does not read /.clang-tidy automatically; pass --config-file explicitly.
@@ -40,27 +40,82 @@ resolve_clang_tidy_config() {
 
 CLANG_TIDY_CONFIG="$(resolve_clang_tidy_config)"
 
+read -r -a QUALITY_DIRS <<< "$QUALITY_DIRS_RAW"
+if [[ "${#QUALITY_DIRS[@]}" -eq 0 ]]; then
+    echo "Error: QUALITY_DIRS is empty" >&2
+    exit 1
+fi
+
+declare -a QUALITY_TARGET_DIRS=()
+for relative_dir in "${QUALITY_DIRS[@]}"; do
+    absolute_dir="$ROOT/$relative_dir"
+    if [[ ! -d "$absolute_dir" ]]; then
+        echo "Error: quality directory not found: $relative_dir" >&2
+        exit 1
+    fi
+    QUALITY_TARGET_DIRS+=("$absolute_dir")
+done
+
+QUALITY_HEADER_FILTER=""
+for relative_dir in "${QUALITY_DIRS[@]}"; do
+    if [[ -n "$QUALITY_HEADER_FILTER" ]]; then
+        QUALITY_HEADER_FILTER+="|"
+    fi
+    QUALITY_HEADER_FILTER+="$relative_dir"
+done
+
+is_vendored_file() {
+    local file="$1"
+    case "$file" in
+        */include/json.hpp) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+collect_format_files() {
+    local dir="$1"
+    find "$dir" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' -o -name '*.hpp' -o -name '*.h' \) -print0
+}
+
+collect_lint_files() {
+    local dir="$1"
+    find "$dir" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0
+}
+
 cd "$ROOT"
 
 format() {
-    find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' -o -name '*.hpp' -o -name '*.h' \) -print0 \
-        | xargs -0 -r clang-format -i
+    echo "==> format"
+    local dir
+    for dir in "${QUALITY_TARGET_DIRS[@]}"; do
+        echo "format: $dir"
+        while IFS= read -r -d '' file; do
+            if is_vendored_file "$file"; then
+                echo "skip vendored format: $file"
+                continue
+            fi
+            clang-format -i "$file"
+        done < <(collect_format_files "$dir")
 
-    find "$HW06_DIR" \( -name 'CMakeLists.txt' -o -name '*.cmake' \) -print0 \
-        | xargs -0 -r cmake-format -i --config-file="$CMAKE_FORMAT_CONFIG"
+        find "$dir" \( -name 'CMakeLists.txt' -o -name '*.cmake' \) -print0 \
+            | xargs -0 -r cmake-format -i --config-file="$CMAKE_FORMAT_CONFIG"
+    done
 }
 
 build() {
+    echo "==> build"
     cmake --preset "$PRESET"
     cmake --build --preset "$PRESET"
 }
 
 test() {
+    echo "==> test"
     build
     ctest --test-dir "$BUILD_DIR" --output-on-failure
 }
 
 lint_sources() {
+    echo "==> lint_sources"
     local failed=0
     local file
 
@@ -74,7 +129,7 @@ lint_sources() {
 
     while IFS= read -r -d '' file; do
         echo "clang-tidy: $file"
-        tidy_args=("$file" -p "$BUILD_DIR" --header-filter='homework_06/.*')
+        tidy_args=("$file" -p "$BUILD_DIR" --header-filter="($QUALITY_HEADER_FILTER)/.*")
         if [[ -n "$CLANG_TIDY_CONFIG" ]]; then
             tidy_args+=(--config-file="$CLANG_TIDY_CONFIG")
         fi
@@ -82,12 +137,17 @@ lint_sources() {
             echo "clang-tidy failed for: $file" >&2
             failed=1
         fi
-    done < <(find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0)
+    done < <(
+        for dir in "${QUALITY_TARGET_DIRS[@]}"; do
+            collect_lint_files "$dir"
+        done
+    )
 
     return "$failed"
 }
 
 lint() {
+    echo "==> lint"
     build
     lint_sources
 }
@@ -97,16 +157,17 @@ usage() {
 Usage: $(basename "$0") <command>
 
 Commands:
-  format   clang-format + cmake-format for homework_06
+  format   clang-format + cmake-format for QUALITY_DIRS
   build    cmake preset debug (override with PRESET=...)
   test     build + ctest in BUILD_DIR (default: build/debug)
-  lint     build + clang-tidy on homework_06 sources
+  lint     build + clang-tidy on QUALITY_DIRS sources
   quality  format + build + test + lint (run before PR)
   config   print resolved ROOT, BUILD_DIR, clang-tidy config (debug)
 
 Environment:
   BUILD_DIR                   default: \$ROOT/build/debug
   PRESET                      default: debug
+  QUALITY_DIRS                default: "homework_06 homework_07"
   CMAKE_FORMAT_CONFIG         default: /.cmake-format.json (devcontainer)
   CLANG_TIDY_CONFIG_OVERRIDE  optional path to .clang-tidy (absolute or relative to ROOT)
 EOF
@@ -115,7 +176,8 @@ EOF
 print_config() {
     echo "ROOT=$ROOT"
     echo "BUILD_DIR=$BUILD_DIR"
-    echo "HW06_DIR=$HW06_DIR"
+    echo "QUALITY_DIRS=${QUALITY_DIRS[*]}"
+    echo "QUALITY_TARGET_DIRS=${QUALITY_TARGET_DIRS[*]}"
     if [[ -n "$CLANG_TIDY_CONFIG" ]]; then
         echo "clang-tidy config: $CLANG_TIDY_CONFIG"
         if command -v clang-tidy >/dev/null 2>&1; then
