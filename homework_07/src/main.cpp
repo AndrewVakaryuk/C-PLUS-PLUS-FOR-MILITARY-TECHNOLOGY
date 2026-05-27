@@ -709,7 +709,7 @@ bool writeSimulationJson(const char *path, const SimStep steps[], int stepCount)
   return true;
 }
 
-int main()
+int runBaselineSimulation()
 {
   AmmoParams *ammo = nullptr;
   SimStep *simSteps = nullptr;
@@ -930,4 +930,9 @@ int main()
 
   cleanupResources(targets, targetCount, ammo, simSteps);
   return 0;
+}
+
+int main()
+{
+  return runBaselineSimulation();
 }

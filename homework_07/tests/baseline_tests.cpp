@@ -152,7 +152,7 @@ TEST(Homework07Baseline, BaselineRunProducesSimulationJson)
   std::error_code removeError;
   fs::remove(outputPath, removeError);
 
-  ASSERT_EQ(homework_07_baseline_entrypoint(), 0);
+  ASSERT_EQ(runBaselineSimulation(), 0);
   ASSERT_TRUE(fs::exists(outputPath));
 
   std::ifstream input(outputPath);
@@ -195,7 +195,7 @@ TEST_P(Homework07ScenarioRunTest, ScenarioProducesSimulationJson)
   ScopedEnvVar dataOverride("HW7_DATA_DIR_OVERRIDE", dataDir);
   ScopedEnvVar outputOverride("HW7_OUTPUT_DIR_OVERRIDE", outputPath.parent_path().string());
 
-  ASSERT_EQ(homework_07_baseline_entrypoint(), 0) << "Scenario: " << scenarioName;
+  ASSERT_EQ(runBaselineSimulation(), 0) << "Scenario: " << scenarioName;
   ASSERT_TRUE(fs::exists(outputPath)) << "Scenario: " << scenarioName;
 
   std::ifstream input(outputPath);
