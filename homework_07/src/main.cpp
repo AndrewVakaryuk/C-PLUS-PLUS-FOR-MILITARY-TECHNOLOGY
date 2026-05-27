@@ -3,8 +3,9 @@
 #include <cstring>
 #include <cmath>
 #include <iomanip>
+#include <cstdlib>
 #include <string>
-#include "json.hpp"
+#include "../include/json.hpp"
 
 using json = nlohmann::json;
 
@@ -115,6 +116,22 @@ constexpr int    DEBUG_STEPS_LIMIT = 120;
 #define HW7_OUTPUT_DIR "."
 #endif
 
+const char *resolveDataDirectory() {
+    const char *overrideDir = std::getenv("HW7_DATA_DIR_OVERRIDE");
+    if (overrideDir != nullptr && overrideDir[0] != '\0') {
+        return overrideDir;
+    }
+    return HW7_DATA_DIR;
+}
+
+const char *resolveOutputDirectory() {
+    const char *overrideDir = std::getenv("HW7_OUTPUT_DIR_OVERRIDE");
+    if (overrideDir != nullptr && overrideDir[0] != '\0') {
+        return overrideDir;
+    }
+    return HW7_OUTPUT_DIR;
+}
+
 std::string joinPath(const char *directory, const char *fileName) {
     std::string path = directory;
     if (!path.empty() && path.back() != '/') {
@@ -125,7 +142,7 @@ std::string joinPath(const char *directory, const char *fileName) {
 }
 
 bool readConfigJson(DroneConfig &config) {
-    const std::string configPath = joinPath(HW7_DATA_DIR, "config.json");
+    const std::string configPath = joinPath(resolveDataDirectory(), "config.json");
     std::ifstream inputFile(configPath);
     if (!inputFile.is_open()) {
         std::cerr << "Error: could not open " << configPath << std::endl;
@@ -184,7 +201,7 @@ bool readInput(double &xd, double &yd, double &zd,
 }
 
 bool readTargetsJson(Coord **&targets, int &targetCount, int &timeSteps) {
-    const std::string targetsPath = joinPath(HW7_DATA_DIR, "targets.json");
+    const std::string targetsPath = joinPath(resolveDataDirectory(), "targets.json");
     std::ifstream targetFile(targetsPath);
     if (!targetFile.is_open()) {
         std::cerr << "Error: could not open " << targetsPath << std::endl;
@@ -253,7 +270,7 @@ void cleanupResources(Coord **&targets, int targetCount, AmmoParams *&ammo, SimS
 }
 
 bool readAmmoJson(AmmoParams *&ammo, int &ammoCount) {
-    const std::string ammoPath = joinPath(HW7_DATA_DIR, "ammo.json");
+    const std::string ammoPath = joinPath(resolveDataDirectory(), "ammo.json");
     std::ifstream ammoFile(ammoPath);
     if (!ammoFile.is_open()) {
         std::cerr << "Error: could not open " << ammoPath << std::endl;
@@ -910,7 +927,7 @@ int main() {
         return 1;
     }
 
-    const std::string simPath = joinPath(HW7_OUTPUT_DIR, "simulation.json");
+    const std::string simPath = joinPath(resolveOutputDirectory(), "simulation.json");
     if (!writeSimulationJson(simPath.c_str(), simSteps, recCount)) {
         cleanupResources(targets, targetCount, ammo, simSteps);
         return 1;

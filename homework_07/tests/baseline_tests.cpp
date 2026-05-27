@@ -1,5 +1,8 @@
 #include <filesystem>
 #include <fstream>
+#include <cstdlib>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -12,6 +15,57 @@
 #undef main
 
 namespace fs = std::filesystem;
+namespace {
+
+class ScopedEnvVar {
+ public:
+  ScopedEnvVar(const char *name, const std::string &value) : name_(name) {
+    const char *existing = std::getenv(name_);
+    if (existing != nullptr) {
+      had_old_value_ = true;
+      old_value_ = existing;
+    }
+    setenv(name_, value.c_str(), 1);
+  }
+
+  ~ScopedEnvVar() {
+    if (had_old_value_) {
+      setenv(name_, old_value_.c_str(), 1);
+    } else {
+      unsetenv(name_);
+    }
+  }
+
+ private:
+  const char *name_;
+  bool had_old_value_ = false;
+  std::string old_value_;
+};
+
+std::vector<std::string> allScenarioNames() {
+  return {
+    "base-circle",
+    "elliptical-trajectories",
+    "figure-eight-trajectory",
+    "star-trajectories",
+    "Lissajous-trajectory",
+    "fast-drone_slow-targets",
+    "heavy-ammo",
+    "gliding-ammo",
+    "cardioid-epitrochoid",
+    "extreme",
+  };
+}
+
+std::string scenarioDataDir(const std::string &scenarioName) {
+  return (fs::path(HW7_SCENARIOS_ROOT) / scenarioName).string();
+}
+
+std::string scenarioOutputDir(const std::string &scenarioName) {
+  return (fs::path(HW7_OUTPUT_DIR) / "scenarios" / scenarioName).string();
+}
+
+}  // namespace
 
 TEST(Homework07Baseline, ReadsBaselineConfig)
 {
@@ -113,3 +167,41 @@ TEST(Homework07Baseline, BaselineRunProducesSimulationJson)
   EXPECT_TRUE(firstStep.contains("aimPoint"));
   EXPECT_TRUE(firstStep.contains("predictedTarget"));
 }
+
+class Homework07ScenarioRunTest : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(Homework07ScenarioRunTest, ScenarioProducesSimulationJson)
+{
+  const std::string scenarioName = GetParam();
+  const std::string dataDir = scenarioDataDir(scenarioName);
+  const fs::path outputPath = fs::path(scenarioOutputDir(scenarioName)) / "simulation.json";
+
+  ASSERT_TRUE(fs::exists(fs::path(dataDir) / "config.json"));
+  ASSERT_TRUE(fs::exists(fs::path(dataDir) / "ammo.json"));
+  ASSERT_TRUE(fs::exists(fs::path(dataDir) / "targets.json"));
+
+  std::error_code createDirError;
+  fs::create_directories(outputPath.parent_path(), createDirError);
+  std::error_code removeError;
+  fs::remove(outputPath, removeError);
+
+  ScopedEnvVar dataOverride("HW7_DATA_DIR_OVERRIDE", dataDir);
+  ScopedEnvVar outputOverride("HW7_OUTPUT_DIR_OVERRIDE", outputPath.parent_path().string());
+
+  ASSERT_EQ(homework_07_baseline_entrypoint(), 0) << "Scenario: " << scenarioName;
+  ASSERT_TRUE(fs::exists(outputPath)) << "Scenario: " << scenarioName;
+
+  std::ifstream input(outputPath);
+  ASSERT_TRUE(input.is_open()) << "Scenario: " << scenarioName;
+
+  json simulation;
+  ASSERT_NO_THROW(input >> simulation);
+  ASSERT_TRUE(simulation.contains("totalSteps"));
+  ASSERT_TRUE(simulation.contains("steps"));
+  ASSERT_TRUE(simulation.at("steps").is_array());
+  ASSERT_FALSE(simulation.at("steps").empty()) << "Scenario: " << scenarioName;
+}
+
+INSTANTIATE_TEST_SUITE_P(Homework07AllScenarios,
+                         Homework07ScenarioRunTest,
+                         ::testing::ValuesIn(allScenarioNames()));

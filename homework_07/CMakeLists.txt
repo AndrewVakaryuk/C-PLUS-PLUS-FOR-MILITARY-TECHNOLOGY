@@ -35,6 +35,7 @@ if(NOT CMAKE_CROSSCOMPILING)
         homework_07_baseline_tests
         PRIVATE
             HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
+            HW7_SCENARIOS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/data"
             HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output"
             ENABLE_LOG=0
             ENABLE_DEBUG=0
