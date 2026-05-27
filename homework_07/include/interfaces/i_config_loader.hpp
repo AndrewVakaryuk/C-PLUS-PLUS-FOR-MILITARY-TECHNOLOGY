@@ -1,7 +1,7 @@
 #ifndef HOMEWORK_07_INTERFACES_I_CONFIG_LOADER_HPP
 #define HOMEWORK_07_INTERFACES_I_CONFIG_LOADER_HPP
 
-#include "domain_types.hpp"
+#include "../domain_types.hpp"
 
 class IConfigLoader {
 public:

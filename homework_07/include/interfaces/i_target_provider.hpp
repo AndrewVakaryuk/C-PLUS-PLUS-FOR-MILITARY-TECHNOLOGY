@@ -1,7 +1,7 @@
 #ifndef HOMEWORK_07_INTERFACES_I_TARGET_PROVIDER_HPP
 #define HOMEWORK_07_INTERFACES_I_TARGET_PROVIDER_HPP
 
-#include "domain_types.hpp"
+#include "../domain_types.hpp"
 
 class ITargetProvider {
 public:

@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(HW7_BASE_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data/base-circle")
 
-add_executable(homework_07_baseline src/main.cpp)
+add_executable(homework_07_baseline src/main.cpp src/file_config_loader.cpp)
 
 target_include_directories(homework_07_baseline PRIVATE include)
 
@@ -26,7 +26,10 @@ if(NOT CMAKE_CROSSCOMPILING)
                        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
     FetchContent_MakeAvailable(googletest)
 
-    add_executable(homework_07_baseline_tests tests/baseline_tests.cpp)
+    add_executable(homework_07_baseline_tests
+                   tests/baseline_tests.cpp
+                   tests/file_config_loader_tests.cpp
+                   src/file_config_loader.cpp)
     target_include_directories(homework_07_baseline_tests PRIVATE include)
     target_compile_definitions(
         homework_07_baseline_tests
