@@ -79,7 +79,8 @@ bool FileConfigLoader::loadConfigJson(const char *configPath)
     const json::string_t &ammoJson = j.at("ammo").get_ref<const json::string_t &>();
     std::strncpy(config_.ammoName, ammoJson.c_str(), sizeof(config_.ammoName) - 1);
     config_.ammoName[sizeof(config_.ammoName) - 1] = '\0';
-  } catch (const std::exception &e) {
+  }
+  catch (const std::exception &e) {
     std::cerr << "Error: invalid " << configPath << ": " << e.what() << std::endl;
     return false;
   }
@@ -122,7 +123,8 @@ bool FileConfigLoader::loadAmmoJson(const char *ammoPath)
     clearAmmo();
     ammo_ = parsedAmmo;
     ammoCount_ = parsedCount;
-  } catch (const std::exception &e) {
+  }
+  catch (const std::exception &e) {
     std::cerr << "Error: invalid " << ammoPath << ": " << e.what() << std::endl;
     return false;
   }
@@ -139,8 +141,7 @@ bool FileConfigLoader::load(const char *configSource)
   char configPath[kMaxPathLen] = {};
   char ammoPath[kMaxPathLen] = {};
 
-  if (!buildPath(configSource, "config.json", configPath, kMaxPathLen)
-      || !buildPath(configSource, "ammo.json", ammoPath, kMaxPathLen)) {
+  if (!buildPath(configSource, "config.json", configPath, kMaxPathLen) || !buildPath(configSource, "ammo.json", ammoPath, kMaxPathLen)) {
     std::cerr << "Error: config source path too long or invalid" << std::endl;
     return false;
   }
