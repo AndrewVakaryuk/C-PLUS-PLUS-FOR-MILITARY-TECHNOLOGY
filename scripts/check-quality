@@ -56,18 +56,24 @@ for relative_dir in "${QUALITY_DIRS[@]}"; do
     QUALITY_TARGET_DIRS+=("$absolute_dir")
 done
 
-QUALITY_HEADER_FILTER=""
+QUALITY_DIR_PATTERN=""
 for relative_dir in "${QUALITY_DIRS[@]}"; do
-    if [[ -n "$QUALITY_HEADER_FILTER" ]]; then
-        QUALITY_HEADER_FILTER+="|"
+    if [[ -n "$QUALITY_DIR_PATTERN" ]]; then
+        QUALITY_DIR_PATTERN+="|"
     fi
-    QUALITY_HEADER_FILTER+="$relative_dir"
+    QUALITY_DIR_PATTERN+="$relative_dir"
 done
+
+# clang-tidy header-filter: project dirs only, never vendored json.hpp (25k+ lines).
+build_lint_header_filter() {
+    echo "^(?!.*/json\\.hpp$).*/(${QUALITY_DIR_PATTERN})/"
+}
 
 is_vendored_file() {
     local file="$1"
     case "$file" in
-        */include/json.hpp) return 0 ;;
+        */include/json.hpp | */json.hpp) return 0 ;;
+        */_deps/* | */googletest/*) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -127,9 +133,17 @@ lint_sources() {
         echo "clang-tidy config: (LLVM defaults)" >&2
     fi
 
+    local header_filter
+    header_filter="$(build_lint_header_filter)"
+    echo "clang-tidy header-filter: $header_filter (excludes vendored json.hpp)"
+
     while IFS= read -r -d '' file; do
+        if is_vendored_file "$file"; then
+            echo "skip vendored lint: $file"
+            continue
+        fi
         echo "clang-tidy: $file"
-        tidy_args=("$file" -p "$BUILD_DIR" --header-filter="($QUALITY_HEADER_FILTER)/.*")
+        tidy_args=("$file" -p "$BUILD_DIR" --header-filter="$header_filter")
         if [[ -n "$CLANG_TIDY_CONFIG" ]]; then
             tidy_args+=(--config-file="$CLANG_TIDY_CONFIG")
         fi

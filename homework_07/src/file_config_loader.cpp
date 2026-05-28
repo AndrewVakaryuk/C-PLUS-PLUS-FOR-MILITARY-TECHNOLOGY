@@ -1,5 +1,6 @@
 #include "../include/file_config_loader.hpp"
 
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -45,12 +46,8 @@ bool FileConfigLoader::buildPath(const char *dir, const char *fileName, char *ou
     return false;
   }
 
-  std::strcpy(outPath, dir);
-  if (!hasSlash) {
-    std::strcat(outPath, "/");
-  }
-  std::strcat(outPath, fileName);
-  return true;
+  const int written = std::snprintf(outPath, static_cast<std::size_t>(outPathSize), hasSlash ? "%s%s" : "%s/%s", dir, fileName);
+  return written > 0 && written < outPathSize;
 }
 
 bool FileConfigLoader::loadConfigJson(const char *configPath)

@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(HW7_BASE_DATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/data/base-circle")
 
 add_executable(homework_07_baseline src/main.cpp src/file_config_loader.cpp
-                                    src/json_target_provider.cpp)
+                                    src/json_target_provider.cpp src/analytical_solver.cpp)
 
 target_include_directories(homework_07_baseline PRIVATE include)
 
@@ -29,9 +29,13 @@ if(NOT CMAKE_CROSSCOMPILING)
 
     add_executable(
         homework_07_baseline_tests
-        tests/baseline_tests.cpp tests/file_config_loader_tests.cpp
-        tests/json_target_provider_tests.cpp src/file_config_loader.cpp
-        src/json_target_provider.cpp)
+        tests/baseline_tests.cpp
+        tests/file_config_loader_tests.cpp
+        tests/json_target_provider_tests.cpp
+        tests/analytical_solver_tests.cpp
+        src/file_config_loader.cpp
+        src/json_target_provider.cpp
+        src/analytical_solver.cpp)
     target_include_directories(homework_07_baseline_tests PRIVATE include)
     target_compile_definitions(
         homework_07_baseline_tests

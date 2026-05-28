@@ -106,6 +106,9 @@ Command Palette -> Tasks: Run Task -> Quality: clang-tidy active file
 QUALITY_DIRS="homework_06 homework_07"
 ```
 
+`clang-tidy` навмисно **не** аналізує vendored `include/json.hpp` (nlohmann/json) —
+це прибирає тисячі хибних попереджень і прискорює `lint`.
+
 Можна обмежити запуск однією домашкою:
 
 ```bash
