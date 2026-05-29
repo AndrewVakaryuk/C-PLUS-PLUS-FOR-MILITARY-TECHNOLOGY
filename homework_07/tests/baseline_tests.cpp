@@ -11,7 +11,7 @@
 #define ENABLE_LOG 0
 #define ENABLE_DEBUG 0
 #define main homework_07_baseline_entrypoint
-#include "../src/main.cpp"
+#include "../src/legacy_baseline.cpp"
 #undef main
 
 namespace fs = std::filesystem;
