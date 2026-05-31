@@ -11,6 +11,10 @@ add_executable(
     homework_07_baseline
     src/main.cpp
     src/mission_demo.cpp
+    src/mission_simulator.cpp
+    src/simulation_json_writer.cpp
+    src/ballistics.cpp
+    src/drone_kinematics.cpp
     src/file_config_loader.cpp
     src/json_target_provider.cpp
     src/analytical_solver.cpp
@@ -26,38 +30,45 @@ target_compile_definitions(
 target_compile_options(homework_07_baseline PRIVATE -Wall -Wextra -pedantic)
 
 if(NOT CMAKE_CROSSCOMPILING)
-    include(FetchContent)
     include(GoogleTest)
 
-    FetchContent_Declare(
-        googletest URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
-                       DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-    FetchContent_MakeAvailable(googletest)
-
-    add_executable(
-        homework_07_baseline_tests
-        tests/baseline_tests.cpp
-        tests/file_config_loader_tests.cpp
-        tests/json_target_provider_tests.cpp
-        tests/analytical_solver_tests.cpp
-        tests/mission_processor_tests.cpp
-        tests/mission_demo_tests.cpp
+    set(HW7_TEST_DEFINITIONS
+        HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
+        HW7_SCENARIOS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/data"
+        HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output"
+        ENABLE_LOG=0
+        ENABLE_DEBUG=0)
+    set(HW7_REFACTORED_SOURCES
         src/mission_demo.cpp
+        src/mission_simulator.cpp
+        src/simulation_json_writer.cpp
+        src/ballistics.cpp
+        src/drone_kinematics.cpp
         src/file_config_loader.cpp
         src/json_target_provider.cpp
         src/analytical_solver.cpp
         src/mission_processor.cpp
         src/factories.cpp)
-    target_include_directories(homework_07_baseline_tests PRIVATE include)
-    target_compile_definitions(
+
+    # Legacy monolith (included .cpp) — separate binary to avoid symbol clashes with refactored modules.
+    add_executable(homework_07_legacy_tests tests/baseline_tests.cpp)
+    target_include_directories(homework_07_legacy_tests PRIVATE include)
+    target_compile_definitions(homework_07_legacy_tests PRIVATE ${HW7_TEST_DEFINITIONS})
+    target_compile_options(homework_07_legacy_tests PRIVATE -Wall -Wextra -pedantic)
+    target_link_libraries(homework_07_legacy_tests PRIVATE GTest::gtest_main)
+    gtest_discover_tests(homework_07_legacy_tests DISCOVERY_MODE PRE_TEST)
+
+    add_executable(
         homework_07_baseline_tests
-        PRIVATE HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
-                HW7_SCENARIOS_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/data"
-                HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output"
-                ENABLE_LOG=0
-                ENABLE_DEBUG=0)
+        tests/file_config_loader_tests.cpp
+        tests/json_target_provider_tests.cpp
+        tests/analytical_solver_tests.cpp
+        tests/mission_processor_tests.cpp
+        tests/mission_demo_tests.cpp
+        ${HW7_REFACTORED_SOURCES})
+    target_include_directories(homework_07_baseline_tests PRIVATE include)
+    target_compile_definitions(homework_07_baseline_tests PRIVATE ${HW7_TEST_DEFINITIONS})
     target_compile_options(homework_07_baseline_tests PRIVATE -Wall -Wextra -pedantic)
     target_link_libraries(homework_07_baseline_tests PRIVATE GTest::gtest_main)
-
     gtest_discover_tests(homework_07_baseline_tests DISCOVERY_MODE PRE_TEST)
 endif()

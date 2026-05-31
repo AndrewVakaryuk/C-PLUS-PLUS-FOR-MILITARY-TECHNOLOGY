@@ -1,31 +1,13 @@
 #include "../include/mission_demo.hpp"
 
-#include <fstream>
 #include <iostream>
 
 #include "../include/factories.hpp"
-#include "../include/json.hpp"
-#include "../include/mission_processor.hpp"
+#include "../include/mission_simulator.hpp"
+#include "../include/simulation_json_writer.hpp"
 
 namespace {
-using json = nlohmann::json;
-
-bool writeMissionResults(const char *outputDir, const json &out)
-{
-  std::string path = outputDir;
-  if (!path.empty() && path.back() != '/') {
-    path += '/';
-  }
-  path += "mission_results.json";
-
-  std::ofstream file(path);
-  if (!file.is_open()) {
-    std::cerr << "Error: could not open mission output file: " << path << std::endl;
-    return false;
-  }
-  file << out.dump(2);
-  return static_cast<bool>(file);
-}
+constexpr int kMaxSimulationRecords = 10002;
 
 void deleteMissionComponents(IConfigLoader *&loader, ITargetProvider *&provider, IBallisticSolver *&solver)
 {
@@ -50,41 +32,28 @@ int runMissionDemo(const char *dataDir, const char *outputDir)
     return 1;
   }
 
-  MissionProcessor mission(loader, provider, solver);
-  if (!mission.init(dataDir)) {
+  MissionSimulator simulator(loader, provider, solver);
+  if (!simulator.init(dataDir)) {
     std::cerr << "Error: mission init failed" << std::endl;
     deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
-  json out;
-  out["steps"] = json::array();
-
-  int stepIndex = 0;
-  while (mission.hasNext()) {
-    DropSolution solution{};
-    if (!mission.step(solution)) {
-      std::cerr << "Error: mission step failed" << std::endl;
-      deleteMissionComponents(loader, provider, solver);
-      return 1;
-    }
-
-    json step;
-    step["index"] = stepIndex++;
-    step["ok"] = solution.ok;
-    step["dropPoint"] = {{"x", solution.dropPoint.x}, {"y", solution.dropPoint.y}};
-    step["travelTime"] = solution.travelTime;
-    step["impactTime"] = solution.impactTime;
-    out["steps"].push_back(step);
-  }
-
-  out["totalSteps"] = stepIndex;
-
-  if (!writeMissionResults(outputDir, out)) {
+  SimStep *steps = new SimStep[kMaxSimulationRecords];
+  int recordCount = 0;
+  if (!simulator.run(steps, kMaxSimulationRecords, recordCount)) {
+    delete[] steps;
     deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
+  if (!writeSimulationJson(outputDir, steps, recordCount)) {
+    delete[] steps;
+    deleteMissionComponents(loader, provider, solver);
+    return 1;
+  }
+
+  delete[] steps;
   deleteMissionComponents(loader, provider, solver);
   return 0;
 }

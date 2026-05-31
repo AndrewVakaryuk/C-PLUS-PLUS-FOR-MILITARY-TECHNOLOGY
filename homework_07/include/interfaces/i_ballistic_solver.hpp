@@ -3,6 +3,8 @@
 
 #include "../domain_types.hpp"
 
+class ITargetProvider;
+
 class IBallisticSolver {
 public:
   virtual ~IBallisticSolver() {}
@@ -13,6 +15,16 @@ public:
                              const AmmoParams &ammo,
                              float attackSpeed,
                              float accelerationPath) const = 0;
+
+  virtual bool solveLead(const Coord &dronePos,
+                         double currentTimeSeconds,
+                         int targetIndex,
+                         const ITargetProvider &targetProvider,
+                         float altitude,
+                         const AmmoParams &ammo,
+                         float attackSpeed,
+                         float accelerationPath,
+                         DropSolution &result) const = 0;
 };
 
 #endif

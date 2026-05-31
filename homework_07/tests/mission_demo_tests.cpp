@@ -10,11 +10,11 @@
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
-TEST(Homework07MissionDemo, WritesMissionResultsForBaseCircle)
+TEST(Homework07MissionDemo, WritesLegacySimulationJsonForBaseCircle)
 {
   const std::string dataDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
   const fs::path outputDir = fs::path(HW7_OUTPUT_DIR) / "mission-demo";
-  const fs::path outputFile = outputDir / "mission_results.json";
+  const fs::path outputFile = outputDir / "simulation.json";
 
   std::error_code ec;
   fs::create_directories(outputDir, ec);
@@ -26,17 +26,22 @@ TEST(Homework07MissionDemo, WritesMissionResultsForBaseCircle)
   std::ifstream input(outputFile);
   ASSERT_TRUE(input.is_open());
 
-  json doc;
-  ASSERT_NO_THROW(input >> doc);
-  ASSERT_TRUE(doc.contains("totalSteps"));
-  ASSERT_TRUE(doc.contains("steps"));
-  ASSERT_TRUE(doc.at("steps").is_array());
-  EXPECT_EQ(doc.at("totalSteps").get<int>(), 5);
-  ASSERT_EQ(doc.at("steps").size(), 5);
+  json simulation;
+  ASSERT_NO_THROW(input >> simulation);
+  ASSERT_TRUE(simulation.contains("totalSteps"));
+  ASSERT_TRUE(simulation.contains("steps"));
+  ASSERT_TRUE(simulation.at("steps").is_array());
 
-  const json &first = doc.at("steps").at(0);
-  EXPECT_TRUE(first.at("ok").get<bool>());
-  EXPECT_TRUE(first.contains("dropPoint"));
-  EXPECT_TRUE(first.contains("travelTime"));
-  EXPECT_TRUE(first.contains("impactTime"));
+  const int totalSteps = simulation.at("totalSteps").get<int>();
+  EXPECT_GT(totalSteps, 10);
+  EXPECT_EQ(static_cast<int>(simulation.at("steps").size()), totalSteps);
+
+  const json &firstStep = simulation.at("steps").at(0);
+  EXPECT_TRUE(firstStep.contains("position"));
+  EXPECT_TRUE(firstStep.contains("direction"));
+  EXPECT_TRUE(firstStep.contains("state"));
+  EXPECT_TRUE(firstStep.contains("targetIndex"));
+  EXPECT_TRUE(firstStep.contains("dropPoint"));
+  EXPECT_TRUE(firstStep.contains("aimPoint"));
+  EXPECT_TRUE(firstStep.contains("predictedTarget"));
 }

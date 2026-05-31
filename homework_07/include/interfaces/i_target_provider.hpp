@@ -9,6 +9,7 @@ public:
 
   virtual int getTargetCount() const = 0;
   virtual bool getTarget(int index, TargetSnapshot &target) const = 0;
+  virtual bool interpolateTargetPosition(int targetIndex, double timeSeconds, Coord &position) const = 0;
 };
 
 #endif

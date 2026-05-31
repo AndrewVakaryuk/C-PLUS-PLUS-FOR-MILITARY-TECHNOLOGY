@@ -49,4 +49,6 @@ struct DropSolution {
   bool ok;
 };
 
+enum DroneState { DRONE_STOPPED = 0, DRONE_ACCELERATING = 1, DRONE_DECELERATING = 2, DRONE_TURNING = 3, DRONE_MOVING = 4 };
+
 #endif

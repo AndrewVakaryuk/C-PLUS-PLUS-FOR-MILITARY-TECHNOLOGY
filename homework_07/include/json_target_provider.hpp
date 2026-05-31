@@ -10,6 +10,7 @@ public:
 
   int getTargetCount() const override;
   bool getTarget(int index, TargetSnapshot &target) const override;
+  bool interpolateTargetPosition(int targetIndex, double timeSeconds, Coord &position) const override;
 
 private:
   JsonTargetProvider(const JsonTargetProvider &) = delete;

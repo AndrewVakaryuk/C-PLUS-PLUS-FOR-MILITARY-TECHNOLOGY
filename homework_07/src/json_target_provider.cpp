@@ -1,5 +1,6 @@
 #include "../include/json_target_provider.hpp"
 
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -153,5 +154,33 @@ bool JsonTargetProvider::getTarget(int index, TargetSnapshot &target) const
   const Coord p1 = targets_[index][1];
   target.velocity.x = (p1.x - p0.x) / arrayTimeStep_;
   target.velocity.y = (p1.y - p0.y) / arrayTimeStep_;
+  return true;
+}
+
+bool JsonTargetProvider::interpolateTargetPosition(int targetIndex, double timeSeconds, Coord &position) const
+{
+  if (!loaded_ || targets_ == nullptr || targetIndex < 0 || targetIndex >= targetCount_ || timeSteps_ <= 1 || arrayTimeStep_ <= 0.0f) {
+    return false;
+  }
+
+  const double cycle = static_cast<double>(timeSteps_) * static_cast<double>(arrayTimeStep_);
+  if (cycle <= 0.0) {
+    return false;
+  }
+
+  double wrappedTime = std::fmod(timeSeconds, cycle);
+  if (wrappedTime < 0.0) {
+    wrappedTime += cycle;
+  }
+
+  const int index = static_cast<int>(std::floor(wrappedTime / static_cast<double>(arrayTimeStep_))) % timeSteps_;
+  const int nextIndex = (index + 1) % timeSteps_;
+  const double fraction = (wrappedTime - static_cast<double>(index) * static_cast<double>(arrayTimeStep_)) /
+                          static_cast<double>(arrayTimeStep_);
+
+  const Coord p0 = targets_[targetIndex][index];
+  const Coord p1 = targets_[targetIndex][nextIndex];
+  position.x = static_cast<float>(p0.x + (p1.x - p0.x) * fraction);
+  position.y = static_cast<float>(p0.y + (p1.y - p0.y) * fraction);
   return true;
 }
