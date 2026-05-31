@@ -58,11 +58,7 @@ double angleDelta(double fromRadians, double toRadians)
   return wrapAngle(toRadians - fromRadians);
 }
 
-double computeTimeToStop(DroneState state,
-                         double speed,
-                         double acceleration,
-                         double angularSpeed,
-                         double remainingTurnRadians)
+double computeTimeToStop(DroneState state, double speed, double acceleration, double angularSpeed, double remainingTurnRadians)
 {
   switch (state) {
     case DRONE_STOPPED:

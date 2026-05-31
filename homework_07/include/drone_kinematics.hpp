@@ -7,11 +7,7 @@ double wrapAngle(double radians);
 
 double angleDelta(double fromRadians, double toRadians);
 
-double computeTimeToStop(DroneState state,
-                         double speed,
-                         double acceleration,
-                         double angularSpeed,
-                         double remainingTurnRadians);
+double computeTimeToStop(DroneState state, double speed, double acceleration, double angularSpeed, double remainingTurnRadians);
 
 void updateDrone(double simTimeStep,
                  double desiredDirection,

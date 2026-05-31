@@ -82,17 +82,19 @@ double computeHorizontalDistance(double mass, double drag, double lift, double f
 
   const double term1 = initialSpeed * flightTime;
   const double term2 = -flightTime * flightTime * drag * initialSpeed / (2.0 * mass);
-  const double term3 = flightTime * flightTime * flightTime * (6.0 * drag * kGravity * lift * mass - 6.0 * drag * drag * (liftSq - 1.0) * initialSpeed) /
-                       (36.0 * mass * mass);
+  const double term3 = flightTime * flightTime * flightTime *
+                       (6.0 * drag * kGravity * lift * mass - 6.0 * drag * drag * (liftSq - 1.0) * initialSpeed) / (36.0 * mass * mass);
   const double term4Den = 36.0 * onePlusLiftSq * onePlusLiftSq * mass * mass * mass;
   const double term4 = flightTime * flightTime * flightTime * flightTime *
-                       (-6.0 * drag * drag * kGravity * lift * (1.0 + liftSq + liftFourth) * mass + 3.0 * drag * drag * drag * liftSq * onePlusLiftSq * initialSpeed +
+                       (-6.0 * drag * drag * kGravity * lift * (1.0 + liftSq + liftFourth) * mass +
+                        3.0 * drag * drag * drag * liftSq * onePlusLiftSq * initialSpeed +
                         6.0 * drag * drag * drag * liftFourth * onePlusLiftSq * initialSpeed) /
                        term4Den;
   const double term5Den = 36.0 * onePlusLiftSq * mass * mass * mass * mass;
-  const double term5 =
-    flightTime * flightTime * flightTime * flightTime * flightTime * (3.0 * drag * drag * drag * kGravity * lift * lift * lift * mass - 3.0 * drag * drag * drag * drag * liftSq * onePlusLiftSq * initialSpeed) /
-    term5Den;
+  const double term5 = flightTime * flightTime * flightTime * flightTime * flightTime *
+                       (3.0 * drag * drag * drag * kGravity * lift * lift * lift * mass -
+                        3.0 * drag * drag * drag * drag * liftSq * onePlusLiftSq * initialSpeed) /
+                       term5Den;
 
   return term1 + term2 + term3 + term4 + term5;
 }
@@ -135,8 +137,8 @@ bool computeDropToAim(const Coord &dronePos,
   double maneuverX = 0.0;
   double maneuverY = 0.0;
 
-  const bool maneuverApplied = applyManeuver(
-    aimX, aimY, droneX, droneY, distance, maneuverX, maneuverY, horizontalReach, static_cast<double>(accelerationPath));
+  const bool maneuverApplied =
+    applyManeuver(aimX, aimY, droneX, droneY, distance, maneuverX, maneuverY, horizontalReach, static_cast<double>(accelerationPath));
 
   if (distance < kDistanceEpsilon) {
     return false;

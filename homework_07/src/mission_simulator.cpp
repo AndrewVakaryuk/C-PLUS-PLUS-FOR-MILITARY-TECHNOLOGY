@@ -164,16 +164,8 @@ bool MissionSimulator::run(SimStep *steps, int maxSteps, int &recordCount)
       break;
     }
 
-    updateDrone(simTimeStep,
-                desiredDirection,
-                turnThreshold,
-                attackSpeed,
-                accelerationPath,
-                angularSpeed,
-                state,
-                speed,
-                direction,
-                dronePos);
+    updateDrone(
+      simTimeStep, desiredDirection, turnThreshold, attackSpeed, accelerationPath, angularSpeed, state, speed, direction, dronePos);
 
     const double timeAfterStep = currentTime + simTimeStep;
     const Coord aimPointAfter{static_cast<float>(dronePos.x + projectileRange * std::cos(direction)),

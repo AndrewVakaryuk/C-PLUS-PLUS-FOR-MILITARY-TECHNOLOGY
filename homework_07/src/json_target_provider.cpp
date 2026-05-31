@@ -175,8 +175,8 @@ bool JsonTargetProvider::interpolateTargetPosition(int targetIndex, double timeS
 
   const int index = static_cast<int>(std::floor(wrappedTime / static_cast<double>(arrayTimeStep_))) % timeSteps_;
   const int nextIndex = (index + 1) % timeSteps_;
-  const double fraction = (wrappedTime - static_cast<double>(index) * static_cast<double>(arrayTimeStep_)) /
-                          static_cast<double>(arrayTimeStep_);
+  const double fraction =
+    (wrappedTime - static_cast<double>(index) * static_cast<double>(arrayTimeStep_)) / static_cast<double>(arrayTimeStep_);
 
   const Coord p0 = targets_[targetIndex][index];
   const Coord p1 = targets_[targetIndex][nextIndex];
