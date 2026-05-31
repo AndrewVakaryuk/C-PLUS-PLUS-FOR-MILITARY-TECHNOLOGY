@@ -5,6 +5,8 @@
 #include "interfaces/i_config_loader.hpp"
 #include "interfaces/i_target_provider.hpp"
 
+// Unit-test helper: one static drop per target from the configured start position.
+// Production path uses MissionSimulator (time-stepped mission until hit).
 class MissionProcessor {
 public:
   MissionProcessor(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver);

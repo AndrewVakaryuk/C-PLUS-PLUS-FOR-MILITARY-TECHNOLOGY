@@ -6,6 +6,8 @@
 #include "interfaces/i_config_loader.hpp"
 #include "interfaces/i_target_provider.hpp"
 
+// Full mission loop: lead targeting, drone kinematics, hit detection, SimStep recording.
+// Used by runMissionDemo / homework_07_baseline.
 class MissionSimulator {
 public:
   MissionSimulator(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver);

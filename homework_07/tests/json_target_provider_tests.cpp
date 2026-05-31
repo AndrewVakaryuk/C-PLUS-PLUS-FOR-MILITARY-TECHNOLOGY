@@ -51,3 +51,41 @@ TEST(Homework07JsonTargetProvider, MissingDirectoryProducesEmptyProvider)
   TargetSnapshot target{};
   EXPECT_FALSE(provider.getTarget(0, target));
 }
+
+TEST(Homework07JsonTargetProvider, InterpolatesTargetPositionAtKnownTimes)
+{
+  const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
+  JsonTargetProvider provider(baseCircleDir.c_str());
+
+  Coord atZero{};
+  ASSERT_TRUE(provider.interpolateTargetPosition(0, 0.0, atZero));
+  EXPECT_FLOAT_EQ(atZero.x, 340.0f);
+  EXPECT_FLOAT_EQ(atZero.y, 250.0f);
+
+  Coord atTen{};
+  ASSERT_TRUE(provider.interpolateTargetPosition(0, 10.0, atTen));
+  EXPECT_NEAR(atTen.x, 339.95f, 0.01f);
+  EXPECT_NEAR(atTen.y, 252.09f, 0.01f);
+}
+
+TEST(Homework07JsonTargetProvider, InterpolatesWithPeriodicWrap)
+{
+  const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
+  JsonTargetProvider provider(baseCircleDir.c_str());
+
+  Coord atCycle{};
+  const double cycle = 120.0 * 10.0;
+  ASSERT_TRUE(provider.interpolateTargetPosition(0, cycle, atCycle));
+  EXPECT_FLOAT_EQ(atCycle.x, 340.0f);
+  EXPECT_FLOAT_EQ(atCycle.y, 250.0f);
+}
+
+TEST(Homework07JsonTargetProvider, RejectsInvalidInterpolationRequest)
+{
+  const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
+  JsonTargetProvider provider(baseCircleDir.c_str());
+
+  Coord position{};
+  EXPECT_FALSE(provider.interpolateTargetPosition(-1, 0.0, position));
+  EXPECT_FALSE(provider.interpolateTargetPosition(provider.getTargetCount(), 0.0, position));
+}
