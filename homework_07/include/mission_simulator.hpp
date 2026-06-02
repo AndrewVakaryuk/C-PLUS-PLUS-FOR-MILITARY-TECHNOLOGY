@@ -1,5 +1,6 @@
-#ifndef HOMEWORK_07_MISSION_SIMULATOR_HPP
-#define HOMEWORK_07_MISSION_SIMULATOR_HPP
+#pragma once
+
+#include <vector>
 
 #include "domain_types.hpp"
 #include "interfaces/i_ballistic_solver.hpp"
@@ -13,7 +14,7 @@ public:
   MissionSimulator(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver);
 
   bool init(const char *configSource);
-  bool run(SimStep *steps, int maxSteps, int &recordCount);
+  bool run(std::vector<SimStep> &steps);
 
 private:
   IConfigLoader *configLoader_;
@@ -23,5 +24,3 @@ private:
   AmmoParams ammo_;
   bool initialized_;
 };
-
-#endif

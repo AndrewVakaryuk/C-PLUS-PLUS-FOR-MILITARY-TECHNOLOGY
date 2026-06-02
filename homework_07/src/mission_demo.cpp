@@ -1,14 +1,13 @@
 #include "../include/mission_demo.hpp"
 
 #include <iostream>
+#include <vector>
 
 #include "../include/factories.hpp"
 #include "../include/mission_simulator.hpp"
 #include "../include/simulation_json_writer.hpp"
 
 namespace {
-constexpr int kMaxSimulationRecords = 10002;
-
 void deleteMissionComponents(IConfigLoader *&loader, ITargetProvider *&provider, IBallisticSolver *&solver)
 {
   delete loader;
@@ -39,21 +38,17 @@ int runMissionDemo(const char *dataDir, const char *outputDir)
     return 1;
   }
 
-  SimStep *steps = new SimStep[kMaxSimulationRecords];
-  int recordCount = 0;
-  if (!simulator.run(steps, kMaxSimulationRecords, recordCount)) {
-    delete[] steps;
+  std::vector<SimStep> steps;
+  if (!simulator.run(steps)) {
     deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
-  if (!writeSimulationJson(outputDir, steps, recordCount)) {
-    delete[] steps;
+  if (!writeSimulationJson(outputDir, steps)) {
     deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
-  delete[] steps;
   deleteMissionComponents(loader, provider, solver);
   return 0;
 }

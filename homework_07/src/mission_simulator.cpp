@@ -1,7 +1,6 @@
 #include "../include/mission_simulator.hpp"
 
 #include <cmath>
-#include <cstring>
 #include <iostream>
 
 #include "../include/ballistics.hpp"
@@ -9,6 +8,7 @@
 
 namespace {
 constexpr int kMaxSimulationSteps = 10000;
+constexpr std::size_t kMaxSimulationRecords = 10002;
 constexpr double kEpsilon = 1e-9;
 }  // namespace
 
@@ -17,16 +17,13 @@ MissionSimulator::MissionSimulator(IConfigLoader *configLoader, ITargetProvider 
   , targetProvider_(targetProvider)
   , solver_(solver)
   , initialized_(false)
-{
-  std::memset(&config_, 0, sizeof(config_));
-  std::memset(&ammo_, 0, sizeof(ammo_));
-}
+{}
 
 bool MissionSimulator::init(const char *configSource)
 {
   initialized_ = false;
-  std::memset(&config_, 0, sizeof(config_));
-  std::memset(&ammo_, 0, sizeof(ammo_));
+  config_ = DroneConfig{};
+  ammo_ = AmmoParams{};
 
   if (configLoader_ == nullptr || targetProvider_ == nullptr || solver_ == nullptr || configSource == nullptr) {
     return false;
@@ -48,10 +45,10 @@ bool MissionSimulator::init(const char *configSource)
   return true;
 }
 
-bool MissionSimulator::run(SimStep *steps, int maxSteps, int &recordCount)
+bool MissionSimulator::run(std::vector<SimStep> &steps)
 {
-  recordCount = 0;
-  if (!initialized_ || steps == nullptr || maxSteps <= 0) {
+  steps.clear();
+  if (!initialized_) {
     return false;
   }
 
@@ -140,7 +137,7 @@ bool MissionSimulator::run(SimStep *steps, int maxSteps, int &recordCount)
       return false;
     }
 
-    if (recordCount >= maxSteps) {
+    if (steps.size() >= kMaxSimulationRecords) {
       std::cerr << "Error: simulation record buffer overflow" << std::endl;
       return false;
     }
@@ -153,12 +150,12 @@ bool MissionSimulator::run(SimStep *steps, int maxSteps, int &recordCount)
     record.dropPoint = bestFirePoint;
     record.aimPoint = aimPointNow;
     record.predictedTarget = predictedTargetNow;
-    steps[recordCount++] = record;
+    steps.push_back(record);
 
     const double missNow = std::hypot(aimPointNow.x - predictedTargetNow.x, aimPointNow.y - predictedTargetNow.y);
     if (missNow <= hitRadius) {
-      if (recordCount == 1 && recordCount < maxSteps) {
-        steps[recordCount++] = record;
+      if (steps.size() == 1 && steps.size() < kMaxSimulationRecords) {
+        steps.push_back(record);
       }
       hit = true;
       break;
@@ -178,7 +175,7 @@ bool MissionSimulator::run(SimStep *steps, int maxSteps, int &recordCount)
 
     const double missAfter = std::hypot(aimPointAfter.x - predictedTargetAfter.x, aimPointAfter.y - predictedTargetAfter.y);
     if (missAfter <= hitRadius) {
-      if (recordCount >= maxSteps) {
+      if (steps.size() >= kMaxSimulationRecords) {
         std::cerr << "Error: simulation record buffer overflow" << std::endl;
         return false;
       }
@@ -188,7 +185,7 @@ bool MissionSimulator::run(SimStep *steps, int maxSteps, int &recordCount)
       afterRecord.state = static_cast<int>(state);
       afterRecord.aimPoint = aimPointAfter;
       afterRecord.predictedTarget = predictedTargetAfter;
-      steps[recordCount++] = afterRecord;
+      steps.push_back(afterRecord);
       hit = true;
       break;
     }
