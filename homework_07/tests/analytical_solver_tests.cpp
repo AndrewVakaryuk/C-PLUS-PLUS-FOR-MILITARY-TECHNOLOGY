@@ -1,4 +1,3 @@
-#include <cstring>
 #include <filesystem>
 #include <string>
 
@@ -8,11 +7,10 @@
 #include "../include/json_target_provider.hpp"
 
 namespace {
-AmmoParams makeAmmo(const char *name, float mass, float drag, float lift)
+AmmoParams makeAmmo(const std::string &name, float mass, float drag, float lift)
 {
   AmmoParams ammo{};
-  std::strncpy(ammo.name, name, sizeof(ammo.name) - 1);
-  ammo.name[sizeof(ammo.name) - 1] = '\0';
+  ammo.name = name;
   ammo.mass = mass;
   ammo.drag = drag;
   ammo.lift = lift;

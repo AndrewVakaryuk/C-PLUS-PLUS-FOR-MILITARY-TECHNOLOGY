@@ -20,7 +20,7 @@ TEST(Homework07FileConfigLoader, LoadsBaseCircleConfigAndAmmo)
   EXPECT_FLOAT_EQ(config.startPos.y, 150.0f);
   EXPECT_FLOAT_EQ(config.altitude, 100.0f);
   EXPECT_FLOAT_EQ(config.attackSpeed, 10.0f);
-  EXPECT_STREQ(config.ammoName, "VOG-17");
+  EXPECT_EQ(config.ammoName, "VOG-17");
 
   AmmoParams ammo{};
   ASSERT_TRUE(loader.getAmmoParams("VOG-17", ammo));

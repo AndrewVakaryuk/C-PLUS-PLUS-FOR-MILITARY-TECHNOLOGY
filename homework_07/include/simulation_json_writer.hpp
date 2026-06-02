@@ -1,8 +1,7 @@
-#ifndef HOMEWORK_07_SIMULATION_JSON_WRITER_HPP
-#define HOMEWORK_07_SIMULATION_JSON_WRITER_HPP
+#pragma once
+
+#include <vector>
 
 #include "domain_types.hpp"
 
-bool writeSimulationJson(const char *outputDir, const SimStep steps[], int stepCount);
-
-#endif
+bool writeSimulationJson(const char *outputDir, const std::vector<SimStep> &steps);
