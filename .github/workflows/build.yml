@@ -1,4 +1,4 @@
-# GitHub Actions workflow: збірка проєкту через репівський devcontainer.
+# GitHub Actions workflow: збірка і тести через репозиторійський devcontainer.
 #
 # Ключова ідея: CI використовує ТОЙ САМИЙ Dockerfile що й локально у
 # VS Code. Інакше "works on my machine" виникає постійно: локальний
@@ -52,5 +52,6 @@ jobs:
           runCmd: |
             cmake --preset debug
             cmake --build --preset debug
+            ctest --test-dir build/debug --output-on-failure
             cmake --preset aarch64-debug
             cmake --build --preset aarch64-debug

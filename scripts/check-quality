@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# Repeatable quality checks for homework_06 (see docs/code-quality.md).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="${BUILD_DIR:-$ROOT/build/debug}"
+PRESET="${PRESET:-debug}"
+HW06_DIR="$ROOT/homework_06"
+CMAKE_FORMAT_CONFIG="${CMAKE_FORMAT_CONFIG:-/.cmake-format.json}"
+
+# clang-tidy does not read /.clang-tidy automatically; pass --config-file explicitly.
+# Prefer $ROOT/.devcontainer/.clang-tidy over image-baked /.clang-tidy so git pull
+# updates lint rules without rebuilding the devcontainer image.
+resolve_clang_tidy_config() {
+    local candidate=""
+
+    if [[ -n "${CLANG_TIDY_CONFIG_OVERRIDE:-}" ]]; then
+        candidate="$CLANG_TIDY_CONFIG_OVERRIDE"
+        if [[ -f "$candidate" ]]; then
+            echo "$candidate"
+            return
+        fi
+        if [[ -f "$ROOT/$candidate" ]]; then
+            echo "$ROOT/$candidate"
+            return
+        fi
+        echo "Warning: CLANG_TIDY_CONFIG_OVERRIDE=$CLANG_TIDY_CONFIG_OVERRIDE not found" >&2
+    fi
+
+    if [[ -f "$ROOT/.devcontainer/.clang-tidy" ]]; then
+        echo "$ROOT/.devcontainer/.clang-tidy"
+        return
+    fi
+    if [[ -f /.clang-tidy ]]; then
+        echo /.clang-tidy
+        return
+    fi
+    echo "Warning: no .clang-tidy found; clang-tidy uses LLVM defaults" >&2
+}
+
+CLANG_TIDY_CONFIG="$(resolve_clang_tidy_config)"
+
+cd "$ROOT"
+
+format() {
+    find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' -o -name '*.hpp' -o -name '*.h' \) -print0 \
+        | xargs -0 -r clang-format -i
+
+    find "$HW06_DIR" \( -name 'CMakeLists.txt' -o -name '*.cmake' \) -print0 \
+        | xargs -0 -r cmake-format -i --config-file="$CMAKE_FORMAT_CONFIG"
+}
+
+build() {
+    cmake --preset "$PRESET"
+    cmake --build --preset "$PRESET"
+}
+
+test() {
+    build
+    ctest --test-dir "$BUILD_DIR" --output-on-failure
+}
+
+lint_sources() {
+    local failed=0
+    local file
+
+    echo "ROOT=$ROOT"
+    echo "BUILD_DIR=$BUILD_DIR"
+    if [[ -n "$CLANG_TIDY_CONFIG" ]]; then
+        echo "clang-tidy config: $CLANG_TIDY_CONFIG"
+    else
+        echo "clang-tidy config: (LLVM defaults)" >&2
+    fi
+
+    while IFS= read -r -d '' file; do
+        echo "clang-tidy: $file"
+        tidy_args=("$file" -p "$BUILD_DIR" --header-filter='homework_06/.*')
+        if [[ -n "$CLANG_TIDY_CONFIG" ]]; then
+            tidy_args+=(--config-file="$CLANG_TIDY_CONFIG")
+        fi
+        if ! clang-tidy "${tidy_args[@]}"; then
+            echo "clang-tidy failed for: $file" >&2
+            failed=1
+        fi
+    done < <(find "$HW06_DIR" -type f \( -name '*.cpp' -o -name '*.cc' -o -name '*.cxx' \) -print0)
+
+    return "$failed"
+}
+
+lint() {
+    build
+    lint_sources
+}
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") <command>
+
+Commands:
+  format   clang-format + cmake-format for homework_06
+  build    cmake preset debug (override with PRESET=...)
+  test     build + ctest in BUILD_DIR (default: build/debug)
+  lint     build + clang-tidy on homework_06 sources
+  quality  format + build + test + lint (run before PR)
+  config   print resolved ROOT, BUILD_DIR, clang-tidy config (debug)
+
+Environment:
+  BUILD_DIR                   default: \$ROOT/build/debug
+  PRESET                      default: debug
+  CMAKE_FORMAT_CONFIG         default: /.cmake-format.json (devcontainer)
+  CLANG_TIDY_CONFIG_OVERRIDE  optional path to .clang-tidy (absolute or relative to ROOT)
+EOF
+}
+
+print_config() {
+    echo "ROOT=$ROOT"
+    echo "BUILD_DIR=$BUILD_DIR"
+    echo "HW06_DIR=$HW06_DIR"
+    if [[ -n "$CLANG_TIDY_CONFIG" ]]; then
+        echo "clang-tidy config: $CLANG_TIDY_CONFIG"
+        if command -v clang-tidy >/dev/null 2>&1; then
+            if clang-tidy --list-checks --config-file="$CLANG_TIDY_CONFIG" 2>/dev/null \
+                | grep -q 'readability-identifier-naming'; then
+                echo "WARNING: readability-identifier-naming is ENABLED in this config" >&2
+            else
+                echo "readability-identifier-naming: disabled (expected)"
+            fi
+        fi
+    else
+        echo "clang-tidy config: (LLVM defaults)" >&2
+    fi
+}
+
+cmd="${1:-quality}"
+case "$cmd" in
+    format) format ;;
+    build) build ;;
+    test) test ;;
+    lint) lint ;;
+    config) print_config ;;
+    quality)
+        format
+        build
+        ctest --test-dir "$BUILD_DIR" --output-on-failure
+        lint_sources
+        ;;
+    -h | --help | help) usage ;;
+    *)
+        echo "Unknown command: $cmd" >&2
+        usage >&2
+        exit 1
+        ;;
+esac

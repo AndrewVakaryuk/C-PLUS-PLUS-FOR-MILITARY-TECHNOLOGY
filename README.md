@@ -170,10 +170,13 @@ main). Він:
 1. Будує devcontainer image з Dockerfile.
 2. Виконує native debug build:
    `cmake --preset debug && cmake --build --preset debug`.
-3. Виконує ARM64 cross debug build:
+3. Запускає CTest для native debug:
+   `ctest --test-dir build/debug --output-on-failure`.
+4. Виконує ARM64 cross debug build:
    `cmake --preset aarch64-debug && cmake --build --preset aarch64-debug`.
-4. Падає якщо хоч одна `homework_XX` або demo target не компілюється з
-   тулчейном з devcontainer-а (gcc-13, clang-18, C++20).
+5. Падає якщо хоч одна `homework_XX` або demo target не компілюється з
+   тулчейном з devcontainer-а (gcc-13, clang-18, C++20), або якщо тести
+   не проходять.
 
 Якщо CI червоний локально зібралося, але на CI ні - швидше за все
 devcontainer треба rebuild локально (Dev Containers: Rebuild Container),

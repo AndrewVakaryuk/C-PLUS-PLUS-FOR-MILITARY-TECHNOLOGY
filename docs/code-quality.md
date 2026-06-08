@@ -90,6 +90,30 @@ Task для `clang-tidy` активного C++ source-файлу:
 Command Palette -> Tasks: Run Task -> Quality: clang-tidy active file
 ```
 
+## Скрипт `scripts/check-quality` (homework_06)
+
+З кореня репо або з будь-якої підпапки (скрипт сам знаходить `ROOT`):
+
+```bash
+./scripts/check-quality config   # який .clang-tidy і build dir використовуються
+./scripts/check-quality lint     # build + clang-tidy для homework_06
+./scripts/check-quality quality  # format + build + test + lint
+```
+
+Скрипт передає `--config-file` явно. У devcontainer він бере
+**`.devcontainer/.clang-tidy` з git** (bind mount), а не застарілий `/.clang-tidy`
+з Docker image — після `git pull` rebuild контейнера для lint-правил не обов'язковий.
+
+Якщо lint все одно скаржиться на `readability-identifier-naming` або
+`modernize-use-trailing-return-type`, перевірити:
+
+```bash
+./scripts/check-quality config
+```
+
+Очікується `clang-tidy config: .../.devcontainer/.clang-tidy` і
+`readability-identifier-naming: disabled (expected)`.
+
 ## Мінімальний цикл перед PR
 
 ```bash
@@ -140,8 +164,12 @@ cmake-format -i --config-file=/.cmake-format.json homework_04/CMakeLists.txt
 Lint одного C++ source-файлу:
 
 ```bash
-clang-tidy homework_04/src/main.cpp -p build/debug
+clang-tidy homework_04/src/main.cpp -p build/debug --config-file=/.clang-tidy
 ```
+
+`clang-tidy` не підхоплює `/.clang-tidy` автоматично (на відміну від того, як
+devcontainer кладе конфіг у корінь контейнера). Без `--config-file` з'являться
+зайві style/modernize "errors", які курс навмисно вимкнув у `.clang-tidy`.
 
 `-p build/debug` вказує clang-tidy, де лежить `compile_commands.json`.
 Без цього clang-tidy часто не бачить ті самі include paths, defines і compiler
