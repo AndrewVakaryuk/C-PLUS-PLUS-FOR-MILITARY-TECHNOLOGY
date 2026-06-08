@@ -90,14 +90,29 @@ Task для `clang-tidy` активного C++ source-файлу:
 Command Palette -> Tasks: Run Task -> Quality: clang-tidy active file
 ```
 
-## Скрипт `scripts/check-quality` (homework_06)
+## Скрипт `scripts/check-quality` (homework_06 + homework_07)
 
 З кореня репо або з будь-якої підпапки (скрипт сам знаходить `ROOT`):
 
 ```bash
 ./scripts/check-quality config   # який .clang-tidy і build dir використовуються
-./scripts/check-quality lint     # build + clang-tidy для homework_06
+./scripts/check-quality lint     # build + clang-tidy для QUALITY_DIRS
 ./scripts/check-quality quality  # format + build + test + lint
+```
+
+За замовчуванням скрипт покриває обидві директорії:
+
+```text
+QUALITY_DIRS="homework_06 homework_07"
+```
+
+`clang-tidy` навмисно **не** аналізує vendored `include/json.hpp` (nlohmann/json) —
+це прибирає тисячі хибних попереджень і прискорює `lint`.
+
+Можна обмежити запуск однією домашкою:
+
+```bash
+QUALITY_DIRS="homework_07" ./scripts/check-quality quality
 ```
 
 Скрипт передає `--config-file` явно. У devcontainer він бере

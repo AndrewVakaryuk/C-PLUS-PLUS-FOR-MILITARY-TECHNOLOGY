@@ -16,10 +16,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 enable_testing()
 
+# GoogleTest for homework_* unit tests (single FetchContent for the whole tree).
+include(${CMAKE_SOURCE_DIR}/cmake/FetchGoogleTest.cmake)
+
 # Домашні роботи. По мірі появи додаємо кожну окремим add_subdirectory.
 add_subdirectory(homework_04)
 add_subdirectory(homework_05)
 add_subdirectory(homework_06)
+add_subdirectory(homework_07)
 
 # Demo-код для заняття 2.4: локальне і віддалене відлагодження через GDB.
 add_subdirectory(demos/lesson_2_4/debug_probe)
