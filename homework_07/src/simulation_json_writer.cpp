@@ -1,4 +1,4 @@
-#include "../include/simulation_json_writer.hpp"
+#include "simulation_json_writer.hpp"
 
 #include <filesystem>
 #include <fstream>

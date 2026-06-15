@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include "../include/file_config_loader.hpp"
+#include "file_config_loader.hpp"
 
 namespace fs = std::filesystem;
 

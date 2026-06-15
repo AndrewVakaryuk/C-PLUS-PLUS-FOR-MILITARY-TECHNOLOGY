@@ -1,10 +1,10 @@
-#include "../include/file_config_loader.hpp"
+#include "file_config_loader.hpp"
 
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 
-#include "../include/json.hpp"
+#include "json.hpp"
 
 namespace {
 using json = nlohmann::json;

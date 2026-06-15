@@ -1,4 +1,4 @@
-#include "../include/drone_kinematics.hpp"
+#include "drone_kinematics.hpp"
 
 #include <cmath>
 

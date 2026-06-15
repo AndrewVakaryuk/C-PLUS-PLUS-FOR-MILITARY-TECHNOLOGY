@@ -1,10 +1,13 @@
-#include "../include/mission_simulator.hpp"
+#include "mission_simulator.hpp"
 
 #include <cmath>
 #include <iostream>
 
-#include "../include/ballistics.hpp"
-#include "../include/drone_kinematics.hpp"
+#include "ballistics.hpp"
+#include "drone_kinematics.hpp"
+#include "interfaces/i_ballistic_solver.hpp"
+#include "interfaces/i_config_loader.hpp"
+#include "interfaces/i_target_provider.hpp"
 
 namespace {
 constexpr int kMaxSimulationSteps = 10000;

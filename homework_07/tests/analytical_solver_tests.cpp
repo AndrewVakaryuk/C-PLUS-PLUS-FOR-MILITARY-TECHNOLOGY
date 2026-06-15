@@ -3,8 +3,8 @@
 
 #include <gtest/gtest.h>
 
-#include "../include/analytical_solver.hpp"
-#include "../include/json_target_provider.hpp"
+#include "analytical_solver.hpp"
+#include "json_target_provider.hpp"
 
 namespace {
 AmmoParams makeAmmo(const std::string &name, float mass, float drag, float lift)

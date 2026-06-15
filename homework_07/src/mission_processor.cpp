@@ -1,4 +1,8 @@
-#include "../include/mission_processor.hpp"
+#include "mission_processor.hpp"
+
+#include "interfaces/i_ballistic_solver.hpp"
+#include "interfaces/i_config_loader.hpp"
+#include "interfaces/i_target_provider.hpp"
 
 MissionProcessor::MissionProcessor(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver)
   : configLoader_(configLoader)

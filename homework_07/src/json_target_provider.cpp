@@ -1,11 +1,11 @@
-#include "../include/json_target_provider.hpp"
+#include "json_target_provider.hpp"
 
 #include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 
-#include "../include/json.hpp"
+#include "json.hpp"
 
 namespace {
 using json = nlohmann::json;

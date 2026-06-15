@@ -1,9 +1,9 @@
-#include "../include/analytical_solver.hpp"
+#include "analytical_solver.hpp"
 
 #include <cmath>
 
-#include "../include/ballistics.hpp"
-#include "../include/interfaces/i_target_provider.hpp"
+#include "ballistics.hpp"
+#include "interfaces/i_target_provider.hpp"
 
 namespace {
 constexpr double kLeadConvergence = 1e-4;

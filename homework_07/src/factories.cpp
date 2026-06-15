@@ -1,8 +1,8 @@
-#include "../include/factories.hpp"
+#include "factories.hpp"
 
-#include "../include/analytical_solver.hpp"
-#include "../include/file_config_loader.hpp"
-#include "../include/json_target_provider.hpp"
+#include "analytical_solver.hpp"
+#include "file_config_loader.hpp"
+#include "json_target_provider.hpp"
 
 IBallisticSolver *createSolver(SolverType type)
 {

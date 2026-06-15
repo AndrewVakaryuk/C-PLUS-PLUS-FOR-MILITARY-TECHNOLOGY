@@ -1,11 +1,14 @@
-#include "../include/mission_demo.hpp"
+#include "mission_demo.hpp"
 
 #include <iostream>
 #include <vector>
 
-#include "../include/factories.hpp"
-#include "../include/mission_simulator.hpp"
-#include "../include/simulation_json_writer.hpp"
+#include "factories.hpp"
+#include "interfaces/i_ballistic_solver.hpp"
+#include "interfaces/i_config_loader.hpp"
+#include "interfaces/i_target_provider.hpp"
+#include "mission_simulator.hpp"
+#include "simulation_json_writer.hpp"
 
 namespace {
 void deleteMissionComponents(IConfigLoader *&loader, ITargetProvider *&provider, IBallisticSolver *&solver)

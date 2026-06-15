@@ -1,4 +1,4 @@
-#include "../include/ballistics.hpp"
+#include "ballistics.hpp"
 
 #include <cmath>
 

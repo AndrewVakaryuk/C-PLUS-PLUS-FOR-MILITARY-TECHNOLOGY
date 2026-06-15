@@ -3,9 +3,10 @@
 #include <vector>
 
 #include "domain_types.hpp"
-#include "interfaces/i_ballistic_solver.hpp"
-#include "interfaces/i_config_loader.hpp"
-#include "interfaces/i_target_provider.hpp"
+
+class IBallisticSolver;
+class IConfigLoader;
+class ITargetProvider;
 
 // Full mission loop: lead targeting, drone kinematics, hit detection, SimStep recording.
 // Used by runMissionDemo / homework_07_baseline.

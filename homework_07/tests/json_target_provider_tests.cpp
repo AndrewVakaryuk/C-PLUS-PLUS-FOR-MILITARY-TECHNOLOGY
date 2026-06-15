@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-#include "../include/json_target_provider.hpp"
+#include "json_target_provider.hpp"
 
 namespace fs = std::filesystem;
 

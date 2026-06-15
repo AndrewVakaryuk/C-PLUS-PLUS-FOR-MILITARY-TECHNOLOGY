@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "../domain_types.hpp"
+#include "domain_types.hpp"
 
 class IConfigLoader {
 public:
