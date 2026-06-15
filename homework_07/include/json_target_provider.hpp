@@ -13,6 +13,10 @@ public:
   int getTargetCount() const override;
   bool getTarget(int index, TargetSnapshot &target) const override;
   bool interpolateTargetPosition(int targetIndex, double timeSeconds, Coord &position) const override;
+  bool extrapolateTargetPosition(int targetIndex,
+                                 double fromTimeSeconds,
+                                 double toTimeSeconds,
+                                 Coord &position) const override;
 
 private:
   JsonTargetProvider(const JsonTargetProvider &) = delete;
@@ -21,6 +25,7 @@ private:
   static std::string buildPath(const std::string &dir, const std::string &fileName);
   bool load(const char *dataSourceDir);
   void clear();
+  bool velocityFromPastSamples(int targetIndex, double atTimeSeconds, Coord &velocity) const;
 
   std::vector<std::vector<Coord>> targets_;
   int timeSteps_;

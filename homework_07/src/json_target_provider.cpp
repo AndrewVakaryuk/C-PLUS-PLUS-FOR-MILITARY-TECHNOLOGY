@@ -152,3 +152,44 @@ bool JsonTargetProvider::interpolateTargetPosition(int targetIndex, double timeS
   position.y = static_cast<float>(p0.y + (p1.y - p0.y) * fraction);
   return true;
 }
+
+bool JsonTargetProvider::velocityFromPastSamples(int targetIndex, double atTimeSeconds, Coord &velocity) const
+{
+  Coord posNow{};
+  Coord posPast{};
+  if (!interpolateTargetPosition(targetIndex, atTimeSeconds, posNow)) {
+    return false;
+  }
+  if (!interpolateTargetPosition(targetIndex, atTimeSeconds - static_cast<double>(arrayTimeStep_), posPast)) {
+    return false;
+  }
+
+  const double dt = static_cast<double>(arrayTimeStep_);
+  velocity.x = static_cast<float>((posNow.x - posPast.x) / dt);
+  velocity.y = static_cast<float>((posNow.y - posPast.y) / dt);
+  return true;
+}
+
+bool JsonTargetProvider::extrapolateTargetPosition(int targetIndex,
+                                                   double fromTimeSeconds,
+                                                   double toTimeSeconds,
+                                                   Coord &position) const
+{
+  if (!loaded_ || targetIndex < 0 || targetIndex >= static_cast<int>(targets_.size()) || arrayTimeStep_ <= 0.0f) {
+    return false;
+  }
+
+  Coord posNow{};
+  Coord velocity{};
+  if (!interpolateTargetPosition(targetIndex, fromTimeSeconds, posNow)) {
+    return false;
+  }
+  if (!velocityFromPastSamples(targetIndex, fromTimeSeconds, velocity)) {
+    return false;
+  }
+
+  const double deltaT = toTimeSeconds - fromTimeSeconds;
+  position.x = static_cast<float>(posNow.x + velocity.x * deltaT);
+  position.y = static_cast<float>(posNow.y + velocity.y * deltaT);
+  return true;
+}

@@ -78,8 +78,8 @@ TEST(Homework07AnalyticalSolver, SolveLeadForBaseCircleAtMissionStart)
 
   DropSolution lead{};
   ASSERT_TRUE(solver.solveLead(dronePos, 0.0, 2, provider, 100.0f, ammo, 10.0f, 10.0f, lead));
-  EXPECT_NEAR(lead.dropPoint.x, 211.252f, 0.05f);
-  EXPECT_NEAR(lead.dropPoint.y, 222.639f, 0.05f);
+  EXPECT_NEAR(lead.dropPoint.x, 211.017f, 0.05f);
+  EXPECT_NEAR(lead.dropPoint.y, 222.600f, 0.05f);
   EXPECT_GT(lead.travelTime, 0.0);
   EXPECT_GT(lead.impactTime, lead.travelTime);
 }
