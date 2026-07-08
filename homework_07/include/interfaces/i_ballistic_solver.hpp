@@ -15,6 +15,11 @@ public:
                              const AmmoParams &ammo,
                              float attackSpeed,
                              float accelerationPath) const = 0;
+  virtual bool projectileMetrics(float altitude,
+                                 const AmmoParams &ammo,
+                                 float dropSpeed,
+                                 double &flightTime,
+                                 double &horizontalRange) const = 0;
 
   virtual bool solveLead(const Coord &dronePos,
                          double currentTimeSeconds,

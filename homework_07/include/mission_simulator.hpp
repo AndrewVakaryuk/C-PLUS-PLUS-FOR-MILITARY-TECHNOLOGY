@@ -1,8 +1,10 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "domain_types.hpp"
+#include "drone_kinematics.hpp"
 
 class IBallisticSolver;
 class IConfigLoader;
@@ -18,7 +20,9 @@ enum class SimulationStepResult {
 // Used by runMissionDemo / homework_07_baseline.
 class MissionSimulator {
 public:
-  MissionSimulator(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver);
+  MissionSimulator(std::unique_ptr<IConfigLoader> configLoader,
+                   std::unique_ptr<ITargetProvider> targetProvider,
+                   std::unique_ptr<IBallisticSolver> solver);
 
   bool init(const char *configSource);
   bool hasNext() const;
@@ -30,9 +34,9 @@ private:
   void resetSimulationState();
   bool selectBestTarget(int &bestIndex, Coord &bestFirePoint) const;
 
-  IConfigLoader *configLoader_;
-  ITargetProvider *targetProvider_;
-  IBallisticSolver *solver_;
+  std::unique_ptr<IConfigLoader> configLoader_;
+  std::unique_ptr<ITargetProvider> targetProvider_;
+  std::unique_ptr<IBallisticSolver> solver_;
   DroneConfig config_;
   AmmoParams ammo_;
   bool initialized_;
@@ -51,7 +55,7 @@ private:
   double acceleration_;
 
   Coord dronePos_;
-  DroneState droneState_;
+  std::unique_ptr<IDroneState> droneState_;
   double speed_;
   double direction_;
   double currentTime_;

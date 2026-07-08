@@ -1,10 +1,15 @@
-#ifndef HOMEWORK_07_ANALYTICAL_SOLVER_HPP
-#define HOMEWORK_07_ANALYTICAL_SOLVER_HPP
+#pragma once
 
+#include <string>
+
+#include "ballistic_table.hpp"
 #include "interfaces/i_ballistic_solver.hpp"
 
-class AnalyticalSolver : public IBallisticSolver {
+class TableSolver : public IBallisticSolver {
 public:
+  TableSolver();
+  explicit TableSolver(std::string tablePath);
+
   DropSolution solve(const Coord &dronePos,
                      const TargetSnapshot &target,
                      float altitude,
@@ -16,7 +21,6 @@ public:
                          float dropSpeed,
                          double &flightTime,
                          double &horizontalRange) const override;
-
   bool solveLead(const Coord &dronePos,
                  double currentTimeSeconds,
                  int targetIndex,
@@ -26,6 +30,8 @@ public:
                  float attackSpeed,
                  float accelerationPath,
                  DropSolution &result) const override;
-};
 
-#endif
+private:
+  BallisticTable table_;
+  bool initialized_;
+};

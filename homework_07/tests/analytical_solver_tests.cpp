@@ -23,7 +23,7 @@ TEST(Homework07AnalyticalSolver, ComputesKnownVog17DropPoint)
   AnalyticalSolver solver;
   const Coord dronePos{100.0f, 100.0f};
   const TargetSnapshot target{{200.0f, 200.0f}, {0.0f, 0.0f}};
-  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.07f, 0.0f);
+  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.004f, 0.0f);
 
   const DropSolution solution = solver.solve(dronePos, target, 100.0f, ammo, 10.0f, 10.0f);
   ASSERT_TRUE(solution.ok);
@@ -38,7 +38,7 @@ TEST(Homework07AnalyticalSolver, ComputesM67ManeuverCase)
   AnalyticalSolver solver;
   const Coord dronePos{543.0f, 232.0f};
   const TargetSnapshot target{{543.0f, 232.0f}, {0.0f, 0.0f}};
-  const AmmoParams ammo = makeAmmo("M67", 0.6f, 0.1f, 0.0f);
+  const AmmoParams ammo = makeAmmo("M67", 0.6f, 0.005f, 0.0f);
 
   const DropSolution solution = solver.solve(dronePos, target, 120.0f, ammo, 13.0f, 12.0f);
   ASSERT_TRUE(solution.ok);
@@ -51,7 +51,7 @@ TEST(Homework07AnalyticalSolver, RejectsInvalidAltitude)
   AnalyticalSolver solver;
   const Coord dronePos{100.0f, 100.0f};
   const TargetSnapshot target{{200.0f, 200.0f}, {0.0f, 0.0f}};
-  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.07f, 0.0f);
+  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.004f, 0.0f);
 
   const DropSolution solution = solver.solve(dronePos, target, 0.0f, ammo, 10.0f, 10.0f);
   EXPECT_FALSE(solution.ok);
@@ -62,7 +62,7 @@ TEST(Homework07AnalyticalSolver, RejectsNonPositiveAttackSpeed)
   AnalyticalSolver solver;
   const Coord dronePos{100.0f, 100.0f};
   const TargetSnapshot target{{200.0f, 200.0f}, {0.0f, 0.0f}};
-  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.07f, 0.0f);
+  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.004f, 0.0f);
 
   const DropSolution solution = solver.solve(dronePos, target, 100.0f, ammo, 0.0f, 10.0f);
   EXPECT_FALSE(solution.ok);
@@ -73,7 +73,7 @@ TEST(Homework07AnalyticalSolver, SolveLeadForBaseCircleAtMissionStart)
   const std::string baseCircleDir = (std::filesystem::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
   JsonTargetProvider provider(baseCircleDir.c_str());
   AnalyticalSolver solver;
-  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.07f, 0.0f);
+  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.004f, 0.0f);
   const Coord dronePos{150.0f, 150.0f};
 
   DropSolution lead{};
@@ -89,7 +89,7 @@ TEST(Homework07AnalyticalSolver, SolveLeadFailsForInvalidTargetIndex)
   const std::string baseCircleDir = (std::filesystem::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
   JsonTargetProvider provider(baseCircleDir.c_str());
   AnalyticalSolver solver;
-  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.07f, 0.0f);
+  const AmmoParams ammo = makeAmmo("VOG-17", 0.35f, 0.004f, 0.0f);
 
   DropSolution lead{};
   EXPECT_FALSE(solver.solveLead({150.0f, 150.0f}, 0.0, -1, provider, 100.0f, ammo, 10.0f, 10.0f, lead));

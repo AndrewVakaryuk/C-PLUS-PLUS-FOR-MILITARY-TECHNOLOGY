@@ -1,13 +1,17 @@
 #include "mission_processor.hpp"
 
+#include <utility>
+
 #include "interfaces/i_ballistic_solver.hpp"
 #include "interfaces/i_config_loader.hpp"
 #include "interfaces/i_target_provider.hpp"
 
-MissionProcessor::MissionProcessor(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver)
-  : configLoader_(configLoader)
-  , targetProvider_(targetProvider)
-  , solver_(solver)
+MissionProcessor::MissionProcessor(std::unique_ptr<IConfigLoader> configLoader,
+                                   std::unique_ptr<ITargetProvider> targetProvider,
+                                   std::unique_ptr<IBallisticSolver> solver)
+  : configLoader_(std::move(configLoader))
+  , targetProvider_(std::move(targetProvider))
+  , solver_(std::move(solver))
   , currentTargetIndex_(0)
   , targetCount_(0)
   , initialized_(false)
@@ -69,9 +73,9 @@ void MissionProcessor::reset()
   currentTargetIndex_ = 0;
 }
 
-void MissionProcessor::changeSolver(IBallisticSolver *solver)
+void MissionProcessor::changeSolver(std::unique_ptr<IBallisticSolver> solver)
 {
   if (solver != nullptr) {
-    solver_ = solver;
+    solver_ = std::move(solver);
   }
 }

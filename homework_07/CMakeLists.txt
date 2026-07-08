@@ -18,6 +18,8 @@ add_executable(
     src/file_config_loader.cpp
     src/json_target_provider.cpp
     src/analytical_solver.cpp
+    src/table_solver.cpp
+    src/ballistic_table.cpp
     src/mission_processor.cpp
     src/factories.cpp)
 
@@ -25,7 +27,8 @@ target_include_directories(homework_07_baseline PRIVATE include)
 
 target_compile_definitions(
     homework_07_baseline PRIVATE HW7_DATA_DIR="${HW7_BASE_DATA_DIR}"
-                                 HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+                                 HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}"
+                                 HW7_BALLISTIC_TABLE_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/ballistic_table.txt")
 
 target_compile_options(homework_07_baseline PRIVATE -Wall -Wextra -pedantic)
 
@@ -44,6 +47,8 @@ if(NOT CMAKE_CROSSCOMPILING)
         src/file_config_loader.cpp
         src/json_target_provider.cpp
         src/analytical_solver.cpp
+        src/table_solver.cpp
+        src/ballistic_table.cpp
         src/mission_processor.cpp
         src/factories.cpp)
 

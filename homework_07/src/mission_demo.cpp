@@ -1,6 +1,9 @@
 #include "mission_demo.hpp"
 
+#include <cstdlib>
 #include <iostream>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "factories.hpp"
@@ -10,48 +13,34 @@
 #include "mission_simulator.hpp"
 #include "simulation_json_writer.hpp"
 
-namespace {
-void deleteMissionComponents(IConfigLoader *&loader, ITargetProvider *&provider, IBallisticSolver *&solver)
-{
-  delete loader;
-  delete provider;
-  delete solver;
-  loader = nullptr;
-  provider = nullptr;
-  solver = nullptr;
-}
-}  // namespace
-
 int runMissionDemo(const char *dataDir, const char *outputDir)
 {
-  IConfigLoader *loader = createLoader(LoaderType::FILE);
-  ITargetProvider *provider = createProvider(ProviderType::JSON, dataDir);
-  IBallisticSolver *solver = createSolver(SolverType::ANALYTICAL);
+  std::unique_ptr<IConfigLoader> loader = createLoader(LoaderType::FILE);
+  std::unique_ptr<ITargetProvider> provider = createProvider(ProviderType::JSON, dataDir);
+  const char *solverOverride = std::getenv("HW7_SOLVER");
+  const SolverType solverType =
+    (solverOverride != nullptr && std::string(solverOverride) == "analytical") ? SolverType::ANALYTICAL : SolverType::TABLE;
+  std::unique_ptr<IBallisticSolver> solver = createSolver(solverType);
 
   if (loader == nullptr || provider == nullptr || solver == nullptr) {
     std::cerr << "Error: failed to create mission components" << std::endl;
-    deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
-  MissionSimulator simulator(loader, provider, solver);
+  MissionSimulator simulator(std::move(loader), std::move(provider), std::move(solver));
   if (!simulator.init(dataDir)) {
     std::cerr << "Error: mission init failed" << std::endl;
-    deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
   std::vector<SimStep> steps;
   if (!simulator.run(steps)) {
-    deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
   if (!writeSimulationJson(outputDir, steps)) {
-    deleteMissionComponents(loader, provider, solver);
     return 1;
   }
 
-  deleteMissionComponents(loader, provider, solver);
   return 0;
 }
