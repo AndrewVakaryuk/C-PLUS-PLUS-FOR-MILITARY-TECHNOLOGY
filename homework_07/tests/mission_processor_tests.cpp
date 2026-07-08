@@ -3,9 +3,12 @@
 
 #include <gtest/gtest.h>
 
-#include "../include/analytical_solver.hpp"
-#include "../include/factories.hpp"
-#include "../include/mission_processor.hpp"
+#include "analytical_solver.hpp"
+#include "factories.hpp"
+#include "interfaces/i_ballistic_solver.hpp"
+#include "interfaces/i_config_loader.hpp"
+#include "interfaces/i_target_provider.hpp"
+#include "mission_processor.hpp"
 
 namespace fs = std::filesystem;
 

@@ -1,7 +1,8 @@
-#ifndef HOMEWORK_07_INTERFACES_I_CONFIG_LOADER_HPP
-#define HOMEWORK_07_INTERFACES_I_CONFIG_LOADER_HPP
+#pragma once
 
-#include "../domain_types.hpp"
+#include <string>
+
+#include "domain_types.hpp"
 
 class IConfigLoader {
 public:
@@ -9,7 +10,5 @@ public:
 
   virtual bool load(const char *configSource) = 0;
   virtual bool getConfig(DroneConfig &config) const = 0;
-  virtual bool getAmmoParams(const char *ammoName, AmmoParams &ammo) const = 0;
+  virtual bool getAmmoParams(const std::string &ammoName, AmmoParams &ammo) const = 0;
 };
-
-#endif

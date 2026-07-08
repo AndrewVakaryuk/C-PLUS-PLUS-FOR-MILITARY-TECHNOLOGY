@@ -1,5 +1,6 @@
-#ifndef HOMEWORK_07_DOMAIN_TYPES_HPP
-#define HOMEWORK_07_DOMAIN_TYPES_HPP
+#pragma once
+
+#include <string>
 
 struct Coord {
   float x;
@@ -7,7 +8,7 @@ struct Coord {
 };
 
 struct AmmoParams {
-  char name[32];
+  std::string name;
   float mass;
   float drag;
   float lift;
@@ -19,7 +20,7 @@ struct DroneConfig {
   float initialDir;
   float attackSpeed;
   float accelPath;
-  char ammoName[32];
+  std::string ammoName;
   float arrayTimeStep;
   float simTimeStep;
   float hitRadius;
@@ -50,5 +51,3 @@ struct DropSolution {
 };
 
 enum DroneState { DRONE_STOPPED = 0, DRONE_ACCELERATING = 1, DRONE_DECELERATING = 2, DRONE_TURNING = 3, DRONE_MOVING = 4 };
-
-#endif

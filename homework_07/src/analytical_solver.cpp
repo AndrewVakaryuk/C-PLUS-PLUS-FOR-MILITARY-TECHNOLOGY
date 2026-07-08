@@ -1,9 +1,9 @@
-#include "../include/analytical_solver.hpp"
+#include "analytical_solver.hpp"
 
 #include <cmath>
 
-#include "../include/ballistics.hpp"
-#include "../include/interfaces/i_target_provider.hpp"
+#include "ballistics.hpp"
+#include "interfaces/i_target_provider.hpp"
 
 namespace {
 constexpr double kLeadConvergence = 1e-4;
@@ -46,7 +46,7 @@ bool AnalyticalSolver::solveLead(const Coord &dronePos,
   for (int iter = 0; iter < kLeadIterations; iter++) {
     const double predictedTime = currentTimeSeconds + travelTime + flightTime;
     Coord aim{};
-    if (!targetProvider.interpolateTargetPosition(targetIndex, predictedTime, aim)) {
+    if (!targetProvider.extrapolateTargetPosition(targetIndex, currentTimeSeconds, predictedTime, aim)) {
       return false;
     }
 
@@ -65,7 +65,7 @@ bool AnalyticalSolver::solveLead(const Coord &dronePos,
 
   const double predictedTime = currentTimeSeconds + travelTime + flightTime;
   Coord aim{};
-  if (!targetProvider.interpolateTargetPosition(targetIndex, predictedTime, aim)) {
+  if (!targetProvider.extrapolateTargetPosition(targetIndex, currentTimeSeconds, predictedTime, aim)) {
     return false;
   }
   return computeDropToAim(dronePos, aim, altitude, ammo, attackSpeed, accelerationPath, result);

@@ -1,15 +1,129 @@
-#include "../include/mission_simulator.hpp"
+#include "mission_simulator.hpp"
 
 #include <cmath>
-#include <cstring>
 #include <iostream>
 
-#include "../include/ballistics.hpp"
-#include "../include/drone_kinematics.hpp"
+#include "ballistics.hpp"
+#include "drone_kinematics.hpp"
+#include "interfaces/i_ballistic_solver.hpp"
+#include "interfaces/i_config_loader.hpp"
+#include "interfaces/i_target_provider.hpp"
 
 namespace {
 constexpr int kMaxSimulationSteps = 10000;
+constexpr std::size_t kMaxSimulationRecords = 10002;
 constexpr double kEpsilon = 1e-9;
+// Drop only near attack speed; avoids low-speed "vertical" releases while still allowing
+// high-speed accel/decel phases that the extreme scenario needs.
+constexpr double kMinReleaseSpeedRatio = 0.5;
+
+bool projectileMetricsAtSpeed(double mass,
+                              double drag,
+                              double lift,
+                              double dropSpeed,
+                              double altitude,
+                              double &flightTime,
+                              double &horizontalRange)
+{
+  if (dropSpeed <= kEpsilon) {
+    return false;
+  }
+
+  flightTime = computeTimeOfFlight(mass, drag, lift, dropSpeed, altitude);
+  if (flightTime < 0.0) {
+    return false;
+  }
+
+  horizontalRange = computeHorizontalDistance(mass, drag, lift, flightTime, dropSpeed);
+  return true;
+}
+
+bool isReadyToRelease(DroneState state, double speed, double attackSpeed)
+{
+  if (state == DRONE_STOPPED || state == DRONE_TURNING) {
+    return false;
+  }
+  return speed >= attackSpeed * kMinReleaseSpeedRatio - kEpsilon;
+}
+
+double displayDropSpeed(double speed, double attackSpeed)
+{
+  if (speed <= kEpsilon) {
+    return attackSpeed;
+  }
+  return speed;
+}
+
+bool computeAimAndPrediction(double mass,
+                             double drag,
+                             double lift,
+                             double dropSpeed,
+                             double altitude,
+                             const Coord &dronePos,
+                             double direction,
+                             double predictionTime,
+                             int targetIndex,
+                             const ITargetProvider &targetProvider,
+                             Coord &aimPoint,
+                             Coord &predictedTarget)
+{
+  double flightTime = 0.0;
+  double range = 0.0;
+  if (!projectileMetricsAtSpeed(mass, drag, lift, dropSpeed, altitude, flightTime, range)) {
+    return false;
+  }
+
+  aimPoint = {static_cast<float>(dronePos.x + range * std::cos(direction)),
+              static_cast<float>(dronePos.y + range * std::sin(direction))};
+  return targetProvider.interpolateTargetPosition(targetIndex, predictionTime + flightTime, predictedTarget);
+}
+
+bool computeAimAndPredictionWithFallback(double mass,
+                                         double drag,
+                                         double lift,
+                                         double preferredDropSpeed,
+                                         double fallbackDropSpeed,
+                                         double altitude,
+                                         const Coord &dronePos,
+                                         double direction,
+                                         double predictionTime,
+                                         int targetIndex,
+                                         const ITargetProvider &targetProvider,
+                                         Coord &aimPoint,
+                                         Coord &predictedTarget)
+{
+  if (computeAimAndPrediction(mass,
+                              drag,
+                              lift,
+                              preferredDropSpeed,
+                              altitude,
+                              dronePos,
+                              direction,
+                              predictionTime,
+                              targetIndex,
+                              targetProvider,
+                              aimPoint,
+                              predictedTarget)) {
+    return true;
+  }
+
+  if (std::fabs(preferredDropSpeed - fallbackDropSpeed) <= kEpsilon) {
+    return false;
+  }
+
+  return computeAimAndPrediction(mass,
+                                 drag,
+                                 lift,
+                                 fallbackDropSpeed,
+                                 altitude,
+                                 dronePos,
+                                 direction,
+                                 predictionTime,
+                                 targetIndex,
+                                 targetProvider,
+                                 aimPoint,
+                                 predictedTarget);
+}
 }  // namespace
 
 MissionSimulator::MissionSimulator(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver)
@@ -17,16 +131,32 @@ MissionSimulator::MissionSimulator(IConfigLoader *configLoader, ITargetProvider 
   , targetProvider_(targetProvider)
   , solver_(solver)
   , initialized_(false)
-{
-  std::memset(&config_, 0, sizeof(config_));
-  std::memset(&ammo_, 0, sizeof(ammo_));
-}
+  , targetCount_(0)
+  , attackSpeed_(0.0)
+  , accelerationPath_(0.0)
+  , altitude_(0.0)
+  , mass_(0.0)
+  , drag_(0.0)
+  , lift_(0.0)
+  , simTimeStep_(0.0)
+  , angularSpeed_(0.0)
+  , turnThreshold_(0.0)
+  , hitRadius_(0.0)
+  , acceleration_(0.0)
+  , droneState_(DRONE_STOPPED)
+  , speed_(0.0)
+  , direction_(0.0)
+  , currentTime_(0.0)
+  , activeTarget_(-1)
+  , tick_(0)
+  , hit_(false)
+{}
 
 bool MissionSimulator::init(const char *configSource)
 {
   initialized_ = false;
-  std::memset(&config_, 0, sizeof(config_));
-  std::memset(&ammo_, 0, sizeof(ammo_));
+  config_ = DroneConfig{};
+  ammo_ = AmmoParams{};
 
   if (configLoader_ == nullptr || targetProvider_ == nullptr || solver_ == nullptr || configSource == nullptr) {
     return false;
@@ -48,160 +178,257 @@ bool MissionSimulator::init(const char *configSource)
   return true;
 }
 
-bool MissionSimulator::run(SimStep *steps, int maxSteps, int &recordCount)
+bool MissionSimulator::validateSimulationParameters() const
 {
-  recordCount = 0;
-  if (!initialized_ || steps == nullptr || maxSteps <= 0) {
-    return false;
-  }
-
-  const int targetCount = targetProvider_->getTargetCount();
-  const double attackSpeed = static_cast<double>(config_.attackSpeed);
-  const double accelerationPath = static_cast<double>(config_.accelPath);
-  const double altitude = static_cast<double>(config_.altitude);
-
-  if (attackSpeed <= kEpsilon || accelerationPath <= kEpsilon || config_.simTimeStep <= 0.0f || config_.arrayTimeStep <= 0.0f ||
+  if (attackSpeed_ <= kEpsilon || accelerationPath_ <= kEpsilon || config_.simTimeStep <= 0.0f || config_.arrayTimeStep <= 0.0f ||
       config_.angularSpeed <= 0.0f) {
     std::cerr << "Error: invalid non-positive simulation parameters" << std::endl;
     return false;
   }
 
-  const double mass = static_cast<double>(ammo_.mass);
-  const double drag = static_cast<double>(ammo_.drag);
-  const double lift = static_cast<double>(ammo_.lift);
-
-  const double projectileFlightTime = computeTimeOfFlight(mass, drag, lift, attackSpeed, altitude);
-  if (projectileFlightTime < 0.0) {
-    std::cerr << "Error: invalid ballistic flight time" << std::endl;
-    return false;
-  }
-  const double projectileRange = computeHorizontalDistance(mass, drag, lift, projectileFlightTime, attackSpeed);
-
-  const double simTimeStep = static_cast<double>(config_.simTimeStep);
-  const double angularSpeed = static_cast<double>(config_.angularSpeed);
-  const double turnThreshold = static_cast<double>(config_.turnThreshold);
-  const double hitRadius = static_cast<double>(config_.hitRadius);
-  const double acceleration = (attackSpeed * attackSpeed) / (2.0 * accelerationPath);
-
-  Coord dronePos = config_.startPos;
-  DroneState state = DRONE_STOPPED;
-  double speed = 0.0;
-  double direction = static_cast<double>(config_.initialDir);
-  double currentTime = 0.0;
-  int activeTarget = -1;
-
-  int tick = 0;
-  bool hit = false;
-
-  while (tick < kMaxSimulationSteps) {
-    const double linearStopTime = computeTimeToStop(state, speed, acceleration, angularSpeed, 0.0);
-
-    double bestScore = 1e300;
-    int bestIndex = -1;
-    Coord bestFirePoint{0.0f, 0.0f};
-
-    for (int i = 0; i < targetCount; i++) {
-      DropSolution leadSolution{};
-      if (!solver_->solveLead(
-            dronePos, currentTime, i, *targetProvider_, config_.altitude, ammo_, config_.attackSpeed, config_.accelPath, leadSolution)) {
-        continue;
-      }
-
-      double penalty = 0.0;
-      if (i != activeTarget) {
-        if (state == DRONE_TURNING) {
-          const double aimDirection = std::atan2(leadSolution.dropPoint.y - dronePos.y, leadSolution.dropPoint.x - dronePos.x);
-          penalty = std::fabs(angleDelta(direction, aimDirection)) / angularSpeed;
-        }
-        else {
-          penalty = linearStopTime;
-        }
-      }
-
-      const double score = leadSolution.impactTime + penalty;
-      if (score < bestScore) {
-        bestScore = score;
-        bestIndex = i;
-        bestFirePoint = leadSolution.dropPoint;
-      }
-    }
-
-    if (bestIndex < 0) {
-      std::cerr << "Error: no reachable target / ballistics failure" << std::endl;
-      return false;
-    }
-
-    const double desiredDirection = std::atan2(bestFirePoint.y - dronePos.y, bestFirePoint.x - dronePos.x);
-    const Coord aimPointNow{static_cast<float>(dronePos.x + projectileRange * std::cos(direction)),
-                            static_cast<float>(dronePos.y + projectileRange * std::sin(direction))};
-    Coord predictedTargetNow{};
-    if (!targetProvider_->interpolateTargetPosition(bestIndex, currentTime + projectileFlightTime, predictedTargetNow)) {
-      std::cerr << "Error: failed to predict target position" << std::endl;
-      return false;
-    }
-
-    if (recordCount >= maxSteps) {
-      std::cerr << "Error: simulation record buffer overflow" << std::endl;
-      return false;
-    }
-
-    SimStep record{};
-    record.pos = dronePos;
-    record.direction = static_cast<float>(direction);
-    record.state = static_cast<int>(state);
-    record.targetIdx = bestIndex;
-    record.dropPoint = bestFirePoint;
-    record.aimPoint = aimPointNow;
-    record.predictedTarget = predictedTargetNow;
-    steps[recordCount++] = record;
-
-    const double missNow = std::hypot(aimPointNow.x - predictedTargetNow.x, aimPointNow.y - predictedTargetNow.y);
-    if (missNow <= hitRadius) {
-      if (recordCount == 1 && recordCount < maxSteps) {
-        steps[recordCount++] = record;
-      }
-      hit = true;
-      break;
-    }
-
-    updateDrone(
-      simTimeStep, desiredDirection, turnThreshold, attackSpeed, accelerationPath, angularSpeed, state, speed, direction, dronePos);
-
-    const double timeAfterStep = currentTime + simTimeStep;
-    const Coord aimPointAfter{static_cast<float>(dronePos.x + projectileRange * std::cos(direction)),
-                              static_cast<float>(dronePos.y + projectileRange * std::sin(direction))};
-    Coord predictedTargetAfter{};
-    if (!targetProvider_->interpolateTargetPosition(bestIndex, timeAfterStep + projectileFlightTime, predictedTargetAfter)) {
-      std::cerr << "Error: failed to predict target position after step" << std::endl;
-      return false;
-    }
-
-    const double missAfter = std::hypot(aimPointAfter.x - predictedTargetAfter.x, aimPointAfter.y - predictedTargetAfter.y);
-    if (missAfter <= hitRadius) {
-      if (recordCount >= maxSteps) {
-        std::cerr << "Error: simulation record buffer overflow" << std::endl;
-        return false;
-      }
-      SimStep afterRecord = record;
-      afterRecord.pos = dronePos;
-      afterRecord.direction = static_cast<float>(direction);
-      afterRecord.state = static_cast<int>(state);
-      afterRecord.aimPoint = aimPointAfter;
-      afterRecord.predictedTarget = predictedTargetAfter;
-      steps[recordCount++] = afterRecord;
-      hit = true;
-      break;
-    }
-
-    activeTarget = bestIndex;
-    currentTime += simTimeStep;
-    tick++;
-  }
-
-  if (!hit) {
-    std::cerr << "Error: hit radius not reached within MAX_STEPS" << std::endl;
+  if (computeTimeOfFlight(mass_, drag_, lift_, attackSpeed_, altitude_) < 0.0) {
+    std::cerr << "Error: invalid ballistic flight time at attack speed" << std::endl;
     return false;
   }
 
   return true;
+}
+
+void MissionSimulator::resetSimulationState()
+{
+  targetCount_ = targetProvider_->getTargetCount();
+  attackSpeed_ = static_cast<double>(config_.attackSpeed);
+  accelerationPath_ = static_cast<double>(config_.accelPath);
+  altitude_ = static_cast<double>(config_.altitude);
+  mass_ = static_cast<double>(ammo_.mass);
+  drag_ = static_cast<double>(ammo_.drag);
+  lift_ = static_cast<double>(ammo_.lift);
+  simTimeStep_ = static_cast<double>(config_.simTimeStep);
+  angularSpeed_ = static_cast<double>(config_.angularSpeed);
+  turnThreshold_ = static_cast<double>(config_.turnThreshold);
+  hitRadius_ = static_cast<double>(config_.hitRadius);
+  acceleration_ = (attackSpeed_ * attackSpeed_) / (2.0 * accelerationPath_);
+
+  dronePos_ = config_.startPos;
+  droneState_ = DRONE_STOPPED;
+  speed_ = 0.0;
+  direction_ = static_cast<double>(config_.initialDir);
+  currentTime_ = 0.0;
+  activeTarget_ = -1;
+  tick_ = 0;
+  hit_ = false;
+}
+
+bool MissionSimulator::hasNext() const
+{
+  return initialized_ && !hit_ && tick_ < kMaxSimulationSteps;
+}
+
+bool MissionSimulator::selectBestTarget(int &bestIndex, Coord &bestFirePoint) const
+{
+  const double linearStopTime = computeTimeToStop(droneState_, speed_, acceleration_, angularSpeed_, 0.0);
+
+  double bestScore = 1e300;
+  bestIndex = -1;
+  bestFirePoint = {0.0f, 0.0f};
+
+  for (int i = 0; i < targetCount_; i++) {
+    DropSolution leadSolution{};
+    if (!solver_->solveLead(
+          dronePos_, currentTime_, i, *targetProvider_, config_.altitude, ammo_, config_.attackSpeed, config_.accelPath, leadSolution)) {
+      continue;
+    }
+
+    double penalty = 0.0;
+    if (i != activeTarget_) {
+      if (droneState_ == DRONE_TURNING) {
+        const double aimDirection = std::atan2(leadSolution.dropPoint.y - dronePos_.y, leadSolution.dropPoint.x - dronePos_.x);
+        penalty = std::fabs(angleDelta(direction_, aimDirection)) / angularSpeed_;
+      }
+      else {
+        penalty = linearStopTime;
+      }
+    }
+
+    const double score = leadSolution.impactTime + penalty;
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = i;
+      bestFirePoint = leadSolution.dropPoint;
+    }
+  }
+
+  return bestIndex >= 0;
+}
+
+SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
+{
+  int bestIndex = -1;
+  Coord bestFirePoint{0.0f, 0.0f};
+  if (!selectBestTarget(bestIndex, bestFirePoint)) {
+    std::cerr << "Error: no reachable target / ballistics failure" << std::endl;
+    return SimulationStepResult::Failed;
+  }
+
+  const double desiredDirection = std::atan2(bestFirePoint.y - dronePos_.y, bestFirePoint.x - dronePos_.x);
+
+  const double recordDropSpeed = displayDropSpeed(speed_, attackSpeed_);
+  Coord aimPointNow = dronePos_;
+  Coord predictedTargetNow = dronePos_;
+  if (!computeAimAndPredictionWithFallback(mass_,
+                                           drag_,
+                                           lift_,
+                                           recordDropSpeed,
+                                           attackSpeed_,
+                                           altitude_,
+                                           dronePos_,
+                                           direction_,
+                                           currentTime_,
+                                           bestIndex,
+                                           *targetProvider_,
+                                           aimPointNow,
+                                           predictedTargetNow)) {
+    std::cerr << "Error: failed to predict target position" << std::endl;
+    return SimulationStepResult::Failed;
+  }
+
+  Coord hitAimPointNow = aimPointNow;
+  Coord hitPredictedTargetNow = predictedTargetNow;
+  const bool canHitNow = isReadyToRelease(droneState_, speed_, attackSpeed_) &&
+                         computeAimAndPrediction(mass_,
+                                                 drag_,
+                                                 lift_,
+                                                 speed_,
+                                                 altitude_,
+                                                 dronePos_,
+                                                 direction_,
+                                                 currentTime_,
+                                                 bestIndex,
+                                                 *targetProvider_,
+                                                 hitAimPointNow,
+                                                 hitPredictedTargetNow);
+
+  if (steps.size() >= kMaxSimulationRecords) {
+    std::cerr << "Error: simulation record buffer overflow" << std::endl;
+    return SimulationStepResult::Failed;
+  }
+
+  SimStep record{};
+  record.pos = dronePos_;
+  record.direction = static_cast<float>(direction_);
+  record.state = static_cast<int>(droneState_);
+  record.targetIdx = bestIndex;
+  record.dropPoint = bestFirePoint;
+  record.aimPoint = aimPointNow;
+  record.predictedTarget = predictedTargetNow;
+  steps.push_back(record);
+
+  const double missNow = std::hypot(hitAimPointNow.x - hitPredictedTargetNow.x, hitAimPointNow.y - hitPredictedTargetNow.y);
+  if (canHitNow && missNow <= hitRadius_) {
+    steps.back().aimPoint = hitAimPointNow;
+    steps.back().predictedTarget = hitPredictedTargetNow;
+    if (steps.size() == 1 && steps.size() < kMaxSimulationRecords) {
+      steps.push_back(steps.back());
+    }
+    hit_ = true;
+    return SimulationStepResult::Hit;
+  }
+
+  updateDrone(simTimeStep_,
+              desiredDirection,
+              turnThreshold_,
+              attackSpeed_,
+              accelerationPath_,
+              angularSpeed_,
+              droneState_,
+              speed_,
+              direction_,
+              dronePos_);
+
+  const double timeAfterStep = currentTime_ + simTimeStep_;
+
+  const double recordDropSpeedAfter = displayDropSpeed(speed_, attackSpeed_);
+  Coord aimPointAfter = dronePos_;
+  Coord predictedTargetAfter = dronePos_;
+  if (!computeAimAndPredictionWithFallback(mass_,
+                                           drag_,
+                                           lift_,
+                                           recordDropSpeedAfter,
+                                           attackSpeed_,
+                                           altitude_,
+                                           dronePos_,
+                                           direction_,
+                                           timeAfterStep,
+                                           bestIndex,
+                                           *targetProvider_,
+                                           aimPointAfter,
+                                           predictedTargetAfter)) {
+    std::cerr << "Error: failed to predict target position after step" << std::endl;
+    return SimulationStepResult::Failed;
+  }
+
+  Coord hitAimPointAfter = aimPointAfter;
+  Coord hitPredictedTargetAfter = predictedTargetAfter;
+  const bool canHitAfter = isReadyToRelease(droneState_, speed_, attackSpeed_) &&
+                           computeAimAndPrediction(mass_,
+                                                   drag_,
+                                                   lift_,
+                                                   speed_,
+                                                   altitude_,
+                                                   dronePos_,
+                                                   direction_,
+                                                   timeAfterStep,
+                                                   bestIndex,
+                                                   *targetProvider_,
+                                                   hitAimPointAfter,
+                                                   hitPredictedTargetAfter);
+
+  const double missAfter =
+    std::hypot(hitAimPointAfter.x - hitPredictedTargetAfter.x, hitAimPointAfter.y - hitPredictedTargetAfter.y);
+  if (canHitAfter && missAfter <= hitRadius_) {
+    if (steps.size() >= kMaxSimulationRecords) {
+      std::cerr << "Error: simulation record buffer overflow" << std::endl;
+      return SimulationStepResult::Failed;
+    }
+    SimStep afterRecord = record;
+    afterRecord.pos = dronePos_;
+    afterRecord.direction = static_cast<float>(direction_);
+    afterRecord.state = static_cast<int>(droneState_);
+    afterRecord.aimPoint = hitAimPointAfter;
+    afterRecord.predictedTarget = hitPredictedTargetAfter;
+    steps.push_back(afterRecord);
+    hit_ = true;
+    return SimulationStepResult::Hit;
+  }
+
+  activeTarget_ = bestIndex;
+  currentTime_ += simTimeStep_;
+  tick_++;
+  return SimulationStepResult::Continue;
+}
+
+bool MissionSimulator::run(std::vector<SimStep> &steps)
+{
+  steps.clear();
+  if (!initialized_) {
+    return false;
+  }
+
+  resetSimulationState();
+  if (!validateSimulationParameters()) {
+    return false;
+  }
+
+  while (hasNext()) {
+    const SimulationStepResult result = step(steps);
+    if (result == SimulationStepResult::Failed) {
+      return false;
+    }
+    if (result == SimulationStepResult::Hit) {
+      return true;
+    }
+  }
+
+  std::cerr << "Error: hit radius not reached within MAX_STEPS" << std::endl;
+  return false;
 }

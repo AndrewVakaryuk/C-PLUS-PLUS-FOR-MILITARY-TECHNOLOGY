@@ -1,10 +1,18 @@
-#ifndef HOMEWORK_07_MISSION_SIMULATOR_HPP
-#define HOMEWORK_07_MISSION_SIMULATOR_HPP
+#pragma once
+
+#include <vector>
 
 #include "domain_types.hpp"
-#include "interfaces/i_ballistic_solver.hpp"
-#include "interfaces/i_config_loader.hpp"
-#include "interfaces/i_target_provider.hpp"
+
+class IBallisticSolver;
+class IConfigLoader;
+class ITargetProvider;
+
+enum class SimulationStepResult {
+  Continue,
+  Hit,
+  Failed,
+};
 
 // Full mission loop: lead targeting, drone kinematics, hit detection, SimStep recording.
 // Used by runMissionDemo / homework_07_baseline.
@@ -13,15 +21,41 @@ public:
   MissionSimulator(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver);
 
   bool init(const char *configSource);
-  bool run(SimStep *steps, int maxSteps, int &recordCount);
+  bool hasNext() const;
+  SimulationStepResult step(std::vector<SimStep> &steps);
+  bool run(std::vector<SimStep> &steps);
 
 private:
+  bool validateSimulationParameters() const;
+  void resetSimulationState();
+  bool selectBestTarget(int &bestIndex, Coord &bestFirePoint) const;
+
   IConfigLoader *configLoader_;
   ITargetProvider *targetProvider_;
   IBallisticSolver *solver_;
   DroneConfig config_;
   AmmoParams ammo_;
   bool initialized_;
-};
 
-#endif
+  int targetCount_;
+  double attackSpeed_;
+  double accelerationPath_;
+  double altitude_;
+  double mass_;
+  double drag_;
+  double lift_;
+  double simTimeStep_;
+  double angularSpeed_;
+  double turnThreshold_;
+  double hitRadius_;
+  double acceleration_;
+
+  Coord dronePos_;
+  DroneState droneState_;
+  double speed_;
+  double direction_;
+  double currentTime_;
+  int activeTarget_;
+  int tick_;
+  bool hit_;
+};

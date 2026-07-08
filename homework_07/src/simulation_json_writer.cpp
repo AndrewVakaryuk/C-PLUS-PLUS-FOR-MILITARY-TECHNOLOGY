@@ -1,4 +1,4 @@
-#include "../include/simulation_json_writer.hpp"
+#include "simulation_json_writer.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -11,22 +11,22 @@ namespace {
 using json = nlohmann::json;
 }  // namespace
 
-bool writeSimulationJson(const char *outputDir, const SimStep steps[], int stepCount)
+bool writeSimulationJson(const char *outputDir, const std::vector<SimStep> &steps)
 {
   json out;
-  out["totalSteps"] = stepCount;
+  out["totalSteps"] = steps.size();
   out["steps"] = json::array();
 
-  for (int i = 0; i < stepCount; i++) {
-    json step;
-    step["position"] = {{"x", steps[i].pos.x}, {"y", steps[i].pos.y}};
-    step["direction"] = steps[i].direction;
-    step["state"] = steps[i].state;
-    step["targetIndex"] = steps[i].targetIdx;
-    step["dropPoint"] = {{"x", steps[i].dropPoint.x}, {"y", steps[i].dropPoint.y}};
-    step["aimPoint"] = {{"x", steps[i].aimPoint.x}, {"y", steps[i].aimPoint.y}};
-    step["predictedTarget"] = {{"x", steps[i].predictedTarget.x}, {"y", steps[i].predictedTarget.y}};
-    out["steps"].push_back(step);
+  for (const SimStep &step : steps) {
+    json stepJson;
+    stepJson["position"] = {{"x", step.pos.x}, {"y", step.pos.y}};
+    stepJson["direction"] = step.direction;
+    stepJson["state"] = step.state;
+    stepJson["targetIndex"] = step.targetIdx;
+    stepJson["dropPoint"] = {{"x", step.dropPoint.x}, {"y", step.dropPoint.y}};
+    stepJson["aimPoint"] = {{"x", step.aimPoint.x}, {"y", step.aimPoint.y}};
+    stepJson["predictedTarget"] = {{"x", step.predictedTarget.x}, {"y", step.predictedTarget.y}};
+    out["steps"].push_back(stepJson);
   }
 
   std::string path = outputDir;

@@ -1,6 +1,8 @@
-#include "../include/mission_processor.hpp"
+#include "mission_processor.hpp"
 
-#include <cstring>
+#include "interfaces/i_ballistic_solver.hpp"
+#include "interfaces/i_config_loader.hpp"
+#include "interfaces/i_target_provider.hpp"
 
 MissionProcessor::MissionProcessor(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver)
   : configLoader_(configLoader)
@@ -9,18 +11,15 @@ MissionProcessor::MissionProcessor(IConfigLoader *configLoader, ITargetProvider 
   , currentTargetIndex_(0)
   , targetCount_(0)
   , initialized_(false)
-{
-  std::memset(&config_, 0, sizeof(config_));
-  std::memset(&ammo_, 0, sizeof(ammo_));
-}
+{}
 
 bool MissionProcessor::init(const char *configSource)
 {
   initialized_ = false;
   currentTargetIndex_ = 0;
   targetCount_ = 0;
-  std::memset(&config_, 0, sizeof(config_));
-  std::memset(&ammo_, 0, sizeof(ammo_));
+  config_ = DroneConfig{};
+  ammo_ = AmmoParams{};
 
   if (configLoader_ == nullptr || targetProvider_ == nullptr || solver_ == nullptr || configSource == nullptr) {
     return false;

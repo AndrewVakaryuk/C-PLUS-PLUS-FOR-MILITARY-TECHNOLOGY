@@ -1,7 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "../include/mission_demo.hpp"
+#include "mission_demo.hpp"
 
 #ifndef HW7_DATA_DIR
 #define HW7_DATA_DIR "."

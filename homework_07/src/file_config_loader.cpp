@@ -1,56 +1,25 @@
-#include "../include/file_config_loader.hpp"
+#include "file_config_loader.hpp"
 
-#include <cstdio>
-#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
-#include "../include/json.hpp"
+#include "json.hpp"
 
 namespace {
 using json = nlohmann::json;
-constexpr int kMaxPathLen = 512;
 }  // namespace
 
 FileConfigLoader::FileConfigLoader()
-  : ammo_(nullptr)
-  , ammoCount_(0)
-  , loaded_(false)
+  : loaded_(false)
+{}
+
+std::string FileConfigLoader::buildPath(const std::string &dir, const std::string &fileName)
 {
-  std::memset(&config_, 0, sizeof(config_));
+  return (std::filesystem::path(dir) / fileName).string();
 }
 
-FileConfigLoader::~FileConfigLoader()
-{
-  clearAmmo();
-}
-
-void FileConfigLoader::clearAmmo()
-{
-  delete[] ammo_;
-  ammo_ = nullptr;
-  ammoCount_ = 0;
-}
-
-bool FileConfigLoader::buildPath(const char *dir, const char *fileName, char *outPath, int outPathSize) const
-{
-  if (dir == nullptr || fileName == nullptr || outPath == nullptr || outPathSize <= 0) {
-    return false;
-  }
-
-  const int dirLen = static_cast<int>(std::strlen(dir));
-  const int fileLen = static_cast<int>(std::strlen(fileName));
-  const bool hasSlash = (dirLen > 0 && dir[dirLen - 1] == '/');
-  const int requiredLen = dirLen + (hasSlash ? 0 : 1) + fileLen + 1;
-  if (requiredLen > outPathSize) {
-    return false;
-  }
-
-  const int written = std::snprintf(outPath, static_cast<std::size_t>(outPathSize), hasSlash ? "%s%s" : "%s/%s", dir, fileName);
-  return written > 0 && written < outPathSize;
-}
-
-bool FileConfigLoader::loadConfigJson(const char *configPath)
+bool FileConfigLoader::loadConfigJson(const std::string &configPath)
 {
   std::ifstream inputFile(configPath);
   if (!inputFile.is_open()) {
@@ -72,10 +41,7 @@ bool FileConfigLoader::loadConfigJson(const char *configPath)
     config_.simTimeStep = j.at("simulation").at("timeStep").get<float>();
     config_.hitRadius = j.at("simulation").at("hitRadius").get<float>();
     config_.arrayTimeStep = j.at("targetArrayTimeStep").get<float>();
-
-    const json::string_t &ammoJson = j.at("ammo").get_ref<const json::string_t &>();
-    std::strncpy(config_.ammoName, ammoJson.c_str(), sizeof(config_.ammoName) - 1);
-    config_.ammoName[sizeof(config_.ammoName) - 1] = '\0';
+    config_.ammoName = j.at("ammo").get<std::string>();
   }
   catch (const std::exception &e) {
     std::cerr << "Error: invalid " << configPath << ": " << e.what() << std::endl;
@@ -85,7 +51,7 @@ bool FileConfigLoader::loadConfigJson(const char *configPath)
   return true;
 }
 
-bool FileConfigLoader::loadAmmoJson(const char *ammoPath)
+bool FileConfigLoader::loadAmmoJson(const std::string &ammoPath)
 {
   std::ifstream ammoFile(ammoPath);
   if (!ammoFile.is_open()) {
@@ -101,25 +67,20 @@ bool FileConfigLoader::loadAmmoJson(const char *ammoPath)
       return false;
     }
 
-    const int parsedCount = static_cast<int>(j.size());
-    if (parsedCount <= 0) {
+    if (j.empty()) {
       std::cerr << "Error: ammo config is empty" << std::endl;
       return false;
     }
 
-    AmmoParams *parsedAmmo = new AmmoParams[parsedCount];
-    for (int i = 0; i < parsedCount; i++) {
-      const json::string_t &nameJson = j.at(i).at("name").get_ref<const json::string_t &>();
-      std::strncpy(parsedAmmo[i].name, nameJson.c_str(), sizeof(parsedAmmo[i].name) - 1);
-      parsedAmmo[i].name[sizeof(parsedAmmo[i].name) - 1] = '\0';
-      parsedAmmo[i].mass = j.at(i).at("mass").get<float>();
-      parsedAmmo[i].drag = j.at(i).at("drag").get<float>();
-      parsedAmmo[i].lift = j.at(i).at("lift").get<float>();
+    ammoByName_.clear();
+    for (const auto &entry : j) {
+      AmmoParams ammo{};
+      ammo.name = entry.at("name").get<std::string>();
+      ammo.mass = entry.at("mass").get<float>();
+      ammo.drag = entry.at("drag").get<float>();
+      ammo.lift = entry.at("lift").get<float>();
+      ammoByName_[ammo.name] = ammo;
     }
-
-    clearAmmo();
-    ammo_ = parsedAmmo;
-    ammoCount_ = parsedCount;
   }
   catch (const std::exception &e) {
     std::cerr << "Error: invalid " << ammoPath << ": " << e.what() << std::endl;
@@ -132,22 +93,23 @@ bool FileConfigLoader::loadAmmoJson(const char *ammoPath)
 bool FileConfigLoader::load(const char *configSource)
 {
   loaded_ = false;
-  std::memset(&config_, 0, sizeof(config_));
-  clearAmmo();
+  config_ = DroneConfig{};
+  ammoByName_.clear();
 
-  char configPath[kMaxPathLen] = {};
-  char ammoPath[kMaxPathLen] = {};
-
-  if (!buildPath(configSource, "config.json", configPath, kMaxPathLen) || !buildPath(configSource, "ammo.json", ammoPath, kMaxPathLen)) {
-    std::cerr << "Error: config source path too long or invalid" << std::endl;
+  if (configSource == nullptr) {
+    std::cerr << "Error: config source path invalid" << std::endl;
     return false;
   }
+
+  const std::string sourceDir = configSource;
+  const std::string configPath = buildPath(sourceDir, "config.json");
+  const std::string ammoPath = buildPath(sourceDir, "ammo.json");
 
   if (!loadConfigJson(configPath)) {
     return false;
   }
   if (!loadAmmoJson(ammoPath)) {
-    clearAmmo();
+    ammoByName_.clear();
     return false;
   }
 
@@ -164,17 +126,17 @@ bool FileConfigLoader::getConfig(DroneConfig &config) const
   return true;
 }
 
-bool FileConfigLoader::getAmmoParams(const char *ammoName, AmmoParams &ammo) const
+bool FileConfigLoader::getAmmoParams(const std::string &ammoName, AmmoParams &ammo) const
 {
-  if (!loaded_ || ammoName == nullptr || ammo_ == nullptr) {
+  if (!loaded_) {
     return false;
   }
 
-  for (int i = 0; i < ammoCount_; i++) {
-    if (std::strcmp(ammo_[i].name, ammoName) == 0) {
-      ammo = ammo_[i];
-      return true;
-    }
+  const auto it = ammoByName_.find(ammoName);
+  if (it == ammoByName_.end()) {
+    return false;
   }
-  return false;
+
+  ammo = it->second;
+  return true;
 }

@@ -1,78 +1,49 @@
-#include "../include/json_target_provider.hpp"
+#include "json_target_provider.hpp"
 
 #include <cmath>
-#include <cstdio>
-#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
-#include "../include/json.hpp"
+#include "json.hpp"
 
 namespace {
 using json = nlohmann::json;
-constexpr int kMaxPathLen = 512;
 }  // namespace
 
 JsonTargetProvider::JsonTargetProvider(const char *dataSourceDir)
-  : targets_(nullptr)
-  , targetCount_(0)
-  , timeSteps_(0)
+  : timeSteps_(0)
   , arrayTimeStep_(1.0f)
   , loaded_(false)
 {
   load(dataSourceDir);
 }
 
-JsonTargetProvider::~JsonTargetProvider()
-{
-  clear();
-}
-
 void JsonTargetProvider::clear()
 {
-  if (targets_ != nullptr) {
-    for (int i = 0; i < targetCount_; i++) {
-      delete[] targets_[i];
-      targets_[i] = nullptr;
-    }
-    delete[] targets_;
-    targets_ = nullptr;
-  }
-  targetCount_ = 0;
+  targets_.clear();
   timeSteps_ = 0;
   arrayTimeStep_ = 1.0f;
   loaded_ = false;
 }
 
-bool JsonTargetProvider::buildPath(const char *dir, const char *fileName, char *outPath, int outPathSize) const
+std::string JsonTargetProvider::buildPath(const std::string &dir, const std::string &fileName)
 {
-  if (dir == nullptr || fileName == nullptr || outPath == nullptr || outPathSize <= 0) {
-    return false;
-  }
-
-  const int dirLen = static_cast<int>(std::strlen(dir));
-  const int fileLen = static_cast<int>(std::strlen(fileName));
-  const bool hasSlash = (dirLen > 0 && dir[dirLen - 1] == '/');
-  const int requiredLen = dirLen + (hasSlash ? 0 : 1) + fileLen + 1;
-  if (requiredLen > outPathSize) {
-    return false;
-  }
-
-  const int written = std::snprintf(outPath, static_cast<std::size_t>(outPathSize), hasSlash ? "%s%s" : "%s/%s", dir, fileName);
-  return written > 0 && written < outPathSize;
+  return (std::filesystem::path(dir) / fileName).string();
 }
 
 bool JsonTargetProvider::load(const char *dataSourceDir)
 {
   clear();
 
-  char targetsPath[kMaxPathLen] = {};
-  char configPath[kMaxPathLen] = {};
-  if (!buildPath(dataSourceDir, "targets.json", targetsPath, kMaxPathLen) ||
-      !buildPath(dataSourceDir, "config.json", configPath, kMaxPathLen)) {
-    std::cerr << "Error: data source path too long or invalid" << std::endl;
+  if (dataSourceDir == nullptr) {
+    std::cerr << "Error: data source path invalid" << std::endl;
     return false;
   }
+
+  const std::string sourceDir = dataSourceDir;
+  const std::string targetsPath = buildPath(sourceDir, "targets.json");
+  const std::string configPath = buildPath(sourceDir, "config.json");
 
   std::ifstream targetsFile(targetsPath);
   if (!targetsFile.is_open()) {
@@ -88,49 +59,35 @@ bool JsonTargetProvider::load(const char *dataSourceDir)
 
   json targetsJson;
   json configJson;
-  int allocatedRows = 0;
   try {
     targetsFile >> targetsJson;
     configFile >> configJson;
 
-    targetCount_ = targetsJson.at("targetCount").get<int>();
+    const int targetCount = targetsJson.at("targetCount").get<int>();
     timeSteps_ = targetsJson.at("timeSteps").get<int>();
     arrayTimeStep_ = configJson.at("targetArrayTimeStep").get<float>();
 
-    if (targetCount_ <= 0 || timeSteps_ <= 1 || arrayTimeStep_ <= 0.0f) {
+    if (targetCount <= 0 || timeSteps_ <= 1 || arrayTimeStep_ <= 0.0f) {
       std::cerr << "Error: invalid target provider config values" << std::endl;
       clear();
       return false;
     }
 
-    targets_ = new Coord *[targetCount_];
-    for (int i = 0; i < targetCount_; i++) {
-      targets_[i] = nullptr;
-    }
-
-    for (int i = 0; i < targetCount_; i++) {
-      targets_[i] = new Coord[timeSteps_];
-      allocatedRows++;
+    targets_.resize(static_cast<std::size_t>(targetCount));
+    for (int i = 0; i < targetCount; i++) {
+      std::vector<Coord> &trajectory = targets_[static_cast<std::size_t>(i)];
+      trajectory.resize(static_cast<std::size_t>(timeSteps_));
       for (int t = 0; t < timeSteps_; t++) {
-        targets_[i][t].x = targetsJson.at("targets").at(i).at("positions").at(t).at("x").get<float>();
-        targets_[i][t].y = targetsJson.at("targets").at(i).at("positions").at(t).at("y").get<float>();
+        trajectory[static_cast<std::size_t>(t)].x =
+          targetsJson.at("targets").at(i).at("positions").at(t).at("x").get<float>();
+        trajectory[static_cast<std::size_t>(t)].y =
+          targetsJson.at("targets").at(i).at("positions").at(t).at("y").get<float>();
       }
     }
   }
   catch (const std::exception &e) {
     std::cerr << "Error: invalid target data: " << e.what() << std::endl;
-    if (targets_ != nullptr) {
-      for (int i = 0; i < allocatedRows; i++) {
-        delete[] targets_[i];
-        targets_[i] = nullptr;
-      }
-      delete[] targets_;
-      targets_ = nullptr;
-    }
-    targetCount_ = 0;
-    timeSteps_ = 0;
-    arrayTimeStep_ = 1.0f;
-    loaded_ = false;
+    clear();
     return false;
   }
 
@@ -140,18 +97,23 @@ bool JsonTargetProvider::load(const char *dataSourceDir)
 
 int JsonTargetProvider::getTargetCount() const
 {
-  return loaded_ ? targetCount_ : 0;
+  return loaded_ ? static_cast<int>(targets_.size()) : 0;
 }
 
 bool JsonTargetProvider::getTarget(int index, TargetSnapshot &target) const
 {
-  if (!loaded_ || targets_ == nullptr || index < 0 || index >= targetCount_) {
+  if (!loaded_ || index < 0 || index >= static_cast<int>(targets_.size())) {
     return false;
   }
 
-  target.position = targets_[index][0];
-  const Coord p0 = targets_[index][0];
-  const Coord p1 = targets_[index][1];
+  const std::vector<Coord> &trajectory = targets_[static_cast<std::size_t>(index)];
+  if (trajectory.size() < 2) {
+    return false;
+  }
+
+  target.position = trajectory[0];
+  const Coord &p0 = trajectory[0];
+  const Coord &p1 = trajectory[1];
   target.velocity.x = (p1.x - p0.x) / arrayTimeStep_;
   target.velocity.y = (p1.y - p0.y) / arrayTimeStep_;
   return true;
@@ -159,7 +121,13 @@ bool JsonTargetProvider::getTarget(int index, TargetSnapshot &target) const
 
 bool JsonTargetProvider::interpolateTargetPosition(int targetIndex, double timeSeconds, Coord &position) const
 {
-  if (!loaded_ || targets_ == nullptr || targetIndex < 0 || targetIndex >= targetCount_ || timeSteps_ <= 1 || arrayTimeStep_ <= 0.0f) {
+  if (!loaded_ || targetIndex < 0 || targetIndex >= static_cast<int>(targets_.size()) || timeSteps_ <= 1 ||
+      arrayTimeStep_ <= 0.0f) {
+    return false;
+  }
+
+  const std::vector<Coord> &trajectory = targets_[static_cast<std::size_t>(targetIndex)];
+  if (static_cast<int>(trajectory.size()) != timeSteps_) {
     return false;
   }
 
@@ -178,9 +146,50 @@ bool JsonTargetProvider::interpolateTargetPosition(int targetIndex, double timeS
   const double fraction =
     (wrappedTime - static_cast<double>(index) * static_cast<double>(arrayTimeStep_)) / static_cast<double>(arrayTimeStep_);
 
-  const Coord p0 = targets_[targetIndex][index];
-  const Coord p1 = targets_[targetIndex][nextIndex];
+  const Coord &p0 = trajectory[static_cast<std::size_t>(index)];
+  const Coord &p1 = trajectory[static_cast<std::size_t>(nextIndex)];
   position.x = static_cast<float>(p0.x + (p1.x - p0.x) * fraction);
   position.y = static_cast<float>(p0.y + (p1.y - p0.y) * fraction);
+  return true;
+}
+
+bool JsonTargetProvider::velocityFromPastSamples(int targetIndex, double atTimeSeconds, Coord &velocity) const
+{
+  Coord posNow{};
+  Coord posPast{};
+  if (!interpolateTargetPosition(targetIndex, atTimeSeconds, posNow)) {
+    return false;
+  }
+  if (!interpolateTargetPosition(targetIndex, atTimeSeconds - static_cast<double>(arrayTimeStep_), posPast)) {
+    return false;
+  }
+
+  const double dt = static_cast<double>(arrayTimeStep_);
+  velocity.x = static_cast<float>((posNow.x - posPast.x) / dt);
+  velocity.y = static_cast<float>((posNow.y - posPast.y) / dt);
+  return true;
+}
+
+bool JsonTargetProvider::extrapolateTargetPosition(int targetIndex,
+                                                   double fromTimeSeconds,
+                                                   double toTimeSeconds,
+                                                   Coord &position) const
+{
+  if (!loaded_ || targetIndex < 0 || targetIndex >= static_cast<int>(targets_.size()) || arrayTimeStep_ <= 0.0f) {
+    return false;
+  }
+
+  Coord posNow{};
+  Coord velocity{};
+  if (!interpolateTargetPosition(targetIndex, fromTimeSeconds, posNow)) {
+    return false;
+  }
+  if (!velocityFromPastSamples(targetIndex, fromTimeSeconds, velocity)) {
+    return false;
+  }
+
+  const double deltaT = toTimeSeconds - fromTimeSeconds;
+  position.x = static_cast<float>(posNow.x + velocity.x * deltaT);
+  position.y = static_cast<float>(posNow.y + velocity.y * deltaT);
   return true;
 }

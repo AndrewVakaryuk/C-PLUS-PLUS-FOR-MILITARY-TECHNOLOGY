@@ -1,30 +1,28 @@
-#ifndef HOMEWORK_07_FILE_CONFIG_LOADER_HPP
-#define HOMEWORK_07_FILE_CONFIG_LOADER_HPP
+#pragma once
+
+#include <string>
+#include <unordered_map>
 
 #include "interfaces/i_config_loader.hpp"
 
 class FileConfigLoader : public IConfigLoader {
 public:
   FileConfigLoader();
-  ~FileConfigLoader() override;
+  ~FileConfigLoader() override = default;
 
   bool load(const char *configSource) override;
   bool getConfig(DroneConfig &config) const override;
-  bool getAmmoParams(const char *ammoName, AmmoParams &ammo) const override;
+  bool getAmmoParams(const std::string &ammoName, AmmoParams &ammo) const override;
 
 private:
   FileConfigLoader(const FileConfigLoader &) = delete;
   FileConfigLoader &operator=(const FileConfigLoader &) = delete;
 
-  void clearAmmo();
-  bool loadConfigJson(const char *configPath);
-  bool loadAmmoJson(const char *ammoPath);
-  bool buildPath(const char *dir, const char *fileName, char *outPath, int outPathSize) const;
+  static std::string buildPath(const std::string &dir, const std::string &fileName);
+  bool loadConfigJson(const std::string &configPath);
+  bool loadAmmoJson(const std::string &ammoPath);
 
   DroneConfig config_;
-  AmmoParams *ammo_;
-  int ammoCount_;
+  std::unordered_map<std::string, AmmoParams> ammoByName_;
   bool loaded_;
 };
-
-#endif

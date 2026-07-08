@@ -1,9 +1,10 @@
+#include <cmath>
 #include <filesystem>
 #include <string>
 
 #include <gtest/gtest.h>
 
-#include "../include/json_target_provider.hpp"
+#include "json_target_provider.hpp"
 
 namespace fs = std::filesystem;
 
@@ -78,6 +79,40 @@ TEST(Homework07JsonTargetProvider, InterpolatesWithPeriodicWrap)
   ASSERT_TRUE(provider.interpolateTargetPosition(0, cycle, atCycle));
   EXPECT_FLOAT_EQ(atCycle.x, 340.0f);
   EXPECT_FLOAT_EQ(atCycle.y, 250.0f);
+}
+
+TEST(Homework07JsonTargetProvider, ExtrapolationDiffersFromTableLookupOnCurvedPath)
+{
+  const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
+  JsonTargetProvider provider(baseCircleDir.c_str());
+
+  Coord fromTable{};
+  Coord fromExtrapolation{};
+  const double fromTime = 50.0;
+  const double toTime = 80.0;
+
+  ASSERT_TRUE(provider.interpolateTargetPosition(0, toTime, fromTable));
+  ASSERT_TRUE(provider.extrapolateTargetPosition(0, fromTime, toTime, fromExtrapolation));
+
+  // On a circle, constant-velocity extrapolation from past samples != oracle table at future time.
+  const double diff = std::hypot(fromTable.x - fromExtrapolation.x, fromTable.y - fromExtrapolation.y);
+  EXPECT_GT(diff, 0.1);
+}
+
+TEST(Homework07JsonTargetProvider, ExtrapolationMatchesLinearMotionOverShortInterval)
+{
+  const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
+  JsonTargetProvider provider(baseCircleDir.c_str());
+
+  Coord atZero{};
+  Coord atFive{};
+  Coord extrapolated{};
+  ASSERT_TRUE(provider.interpolateTargetPosition(0, 0.0, atZero));
+  ASSERT_TRUE(provider.interpolateTargetPosition(0, 5.0, atFive));
+  ASSERT_TRUE(provider.extrapolateTargetPosition(0, 0.0, 5.0, extrapolated));
+
+  EXPECT_NEAR(extrapolated.x, atFive.x, 0.05f);
+  EXPECT_NEAR(extrapolated.y, atFive.y, 0.05f);
 }
 
 TEST(Homework07JsonTargetProvider, RejectsInvalidInterpolationRequest)

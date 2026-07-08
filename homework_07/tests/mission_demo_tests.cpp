@@ -5,8 +5,8 @@
 
 #include <gtest/gtest.h>
 
-#include "../include/json.hpp"
-#include "../include/mission_demo.hpp"
+#include "json.hpp"
+#include "mission_demo.hpp"
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;

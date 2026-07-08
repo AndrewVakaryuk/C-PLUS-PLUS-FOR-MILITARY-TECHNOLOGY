@@ -1,18 +1,16 @@
-#include <cstring>
 #include <filesystem>
 #include <string>
 
 #include <gtest/gtest.h>
 
-#include "../include/analytical_solver.hpp"
-#include "../include/json_target_provider.hpp"
+#include "analytical_solver.hpp"
+#include "json_target_provider.hpp"
 
 namespace {
-AmmoParams makeAmmo(const char *name, float mass, float drag, float lift)
+AmmoParams makeAmmo(const std::string &name, float mass, float drag, float lift)
 {
   AmmoParams ammo{};
-  std::strncpy(ammo.name, name, sizeof(ammo.name) - 1);
-  ammo.name[sizeof(ammo.name) - 1] = '\0';
+  ammo.name = name;
   ammo.mass = mass;
   ammo.drag = drag;
   ammo.lift = lift;
@@ -80,8 +78,8 @@ TEST(Homework07AnalyticalSolver, SolveLeadForBaseCircleAtMissionStart)
 
   DropSolution lead{};
   ASSERT_TRUE(solver.solveLead(dronePos, 0.0, 2, provider, 100.0f, ammo, 10.0f, 10.0f, lead));
-  EXPECT_NEAR(lead.dropPoint.x, 211.252f, 0.05f);
-  EXPECT_NEAR(lead.dropPoint.y, 222.639f, 0.05f);
+  EXPECT_NEAR(lead.dropPoint.x, 211.017f, 0.05f);
+  EXPECT_NEAR(lead.dropPoint.y, 222.600f, 0.05f);
   EXPECT_GT(lead.travelTime, 0.0);
   EXPECT_GT(lead.impactTime, lead.travelTime);
 }
