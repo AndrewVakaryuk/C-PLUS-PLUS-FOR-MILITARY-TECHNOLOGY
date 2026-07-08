@@ -1,6 +1,7 @@
 #include "drone_kinematics.hpp"
 
 #include <cmath>
+#include <memory>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -9,9 +10,29 @@
 namespace {
 constexpr double kEpsilon = 1e-9;
 
+class StateStopped;
+class StateAccelerating;
+class StateDecelerating;
+class StateTurning;
+class StateMoving;
+
+std::unique_ptr<IDroneState> makeStopped();
+std::unique_ptr<IDroneState> makeAccelerating();
+std::unique_ptr<IDroneState> makeDecelerating();
+std::unique_ptr<IDroneState> makeTurning();
+std::unique_ptr<IDroneState> makeMoving();
+
+double currentAcceleration(const DroneContext &ctx)
+{
+  if (ctx.accelerationPath <= kEpsilon) {
+    return 0.0;
+  }
+  return (ctx.attackSpeed * ctx.attackSpeed) / (2.0 * ctx.accelerationPath);
+}
+
 double rotateToward(double currentDir, double desiredDir, double maxStepRad)
 {
-  double delta = angleDelta(currentDir, desiredDir);
+  const double delta = angleDelta(currentDir, desiredDir);
   if (std::fabs(delta) <= maxStepRad) {
     return wrapAngle(desiredDir);
   }
@@ -24,22 +45,182 @@ void advanceAlongHeading(double averageSpeed, double direction, double simTimeSt
   position.y += static_cast<float>(averageSpeed * std::sin(direction) * simTimeStep);
 }
 
-void decelerateThisStep(double simTimeStep, double acceleration, DroneState &state, double &speed, double direction, Coord &position)
-{
-  if (acceleration <= kEpsilon) {
-    speed = 0.0;
-    state = DRONE_TURNING;
-    return;
+class StateStopped final : public IDroneState {
+public:
+  std::unique_ptr<IDroneState> execute(DroneContext &ctx) const override
+  {
+    const double delta = angleDelta(ctx.direction, ctx.desiredDirection);
+    if (std::fabs(delta) > ctx.turnThresholdRadians) {
+      return makeTurning();
+    }
+    return makeAccelerating();
   }
-  const double speedBefore = speed;
-  const double speedAfter = std::max(0.0, speedBefore - acceleration * simTimeStep);
-  advanceAlongHeading(0.5 * (speedBefore + speedAfter), direction, simTimeStep, position);
-  speed = speedAfter;
-  state = (speed <= 1e-6) ? DRONE_TURNING : DRONE_DECELERATING;
-  if (speed <= 1e-6) {
-    speed = 0.0;
+
+  const char *name() const override { return "Stopped"; }
+  int code() const override { return DRONE_STATE_STOPPED; }
+  bool canRelease() const override { return false; }
+  bool isTurning() const override { return false; }
+  double estimateStopTime(const DroneContext &) const override { return 0.0; }
+};
+
+class StateTurning final : public IDroneState {
+public:
+  std::unique_ptr<IDroneState> execute(DroneContext &ctx) const override
+  {
+    const double angularStep = ctx.angularSpeedRadiansPerSec * ctx.simTimeStep;
+    ctx.direction = rotateToward(ctx.direction, ctx.desiredDirection, angularStep);
+    const double delta = angleDelta(ctx.direction, ctx.desiredDirection);
+    if (std::fabs(delta) < 1e-4) {
+      return makeAccelerating();
+    }
+    return nullptr;
   }
-}
+
+  const char *name() const override { return "Turning"; }
+  int code() const override { return DRONE_STATE_TURNING; }
+  bool canRelease() const override { return false; }
+  bool isTurning() const override { return true; }
+  double estimateStopTime(const DroneContext &ctx) const override
+  {
+    if (ctx.angularSpeedRadiansPerSec <= kEpsilon) {
+      return 1e9;
+    }
+    return std::fabs(angleDelta(ctx.direction, ctx.desiredDirection)) / ctx.angularSpeedRadiansPerSec;
+  }
+};
+
+class StateDecelerating final : public IDroneState {
+public:
+  std::unique_ptr<IDroneState> execute(DroneContext &ctx) const override
+  {
+    const double acceleration = currentAcceleration(ctx);
+    if (acceleration <= kEpsilon) {
+      ctx.speed = 0.0;
+      return makeTurning();
+    }
+
+    const double speedBefore = ctx.speed;
+    const double speedAfter = std::max(0.0, speedBefore - acceleration * ctx.simTimeStep);
+    advanceAlongHeading(0.5 * (speedBefore + speedAfter), ctx.direction, ctx.simTimeStep, ctx.position);
+    ctx.speed = speedAfter;
+    if (ctx.speed <= 1e-6) {
+      ctx.speed = 0.0;
+      return makeTurning();
+    }
+    return nullptr;
+  }
+
+  const char *name() const override { return "Decelerating"; }
+  int code() const override { return DRONE_STATE_DECELERATING; }
+  bool canRelease() const override { return true; }
+  bool isTurning() const override { return false; }
+  double estimateStopTime(const DroneContext &ctx) const override
+  {
+    const double acceleration = currentAcceleration(ctx);
+    if (acceleration <= kEpsilon) {
+      return 1e9;
+    }
+    return ctx.speed / acceleration;
+  }
+};
+
+class StateMoving final : public IDroneState {
+public:
+  std::unique_ptr<IDroneState> execute(DroneContext &ctx) const override
+  {
+    const double delta = angleDelta(ctx.direction, ctx.desiredDirection);
+    if (std::fabs(delta) > ctx.turnThresholdRadians) {
+      const double acceleration = currentAcceleration(ctx);
+      if (acceleration <= kEpsilon) {
+        ctx.speed = 0.0;
+        return makeTurning();
+      }
+
+      const double speedBefore = ctx.speed;
+      const double speedAfter = std::max(0.0, speedBefore - acceleration * ctx.simTimeStep);
+      advanceAlongHeading(0.5 * (speedBefore + speedAfter), ctx.direction, ctx.simTimeStep, ctx.position);
+      ctx.speed = speedAfter;
+      if (ctx.speed <= 1e-6) {
+        ctx.speed = 0.0;
+        return makeTurning();
+      }
+      return makeDecelerating();
+    }
+
+    const double angularStep = ctx.angularSpeedRadiansPerSec * ctx.simTimeStep;
+    ctx.direction = rotateToward(ctx.direction, ctx.desiredDirection, angularStep);
+    advanceAlongHeading(ctx.speed, ctx.direction, ctx.simTimeStep, ctx.position);
+    return nullptr;
+  }
+
+  const char *name() const override { return "Moving"; }
+  int code() const override { return DRONE_STATE_MOVING; }
+  bool canRelease() const override { return true; }
+  bool isTurning() const override { return false; }
+  double estimateStopTime(const DroneContext &ctx) const override
+  {
+    const double acceleration = currentAcceleration(ctx);
+    if (acceleration <= kEpsilon) {
+      return 1e9;
+    }
+    return ctx.speed / acceleration;
+  }
+};
+
+class StateAccelerating final : public IDroneState {
+public:
+  std::unique_ptr<IDroneState> execute(DroneContext &ctx) const override
+  {
+    const double acceleration = currentAcceleration(ctx);
+    const double delta = angleDelta(ctx.direction, ctx.desiredDirection);
+
+    if (acceleration <= kEpsilon) {
+      ctx.speed = ctx.attackSpeed;
+      return makeMoving();
+    }
+
+    if (std::fabs(delta) > ctx.turnThresholdRadians && ctx.speed > 1e-3) {
+      const double speedBefore = ctx.speed;
+      const double speedAfter = std::max(0.0, speedBefore - acceleration * ctx.simTimeStep);
+      advanceAlongHeading(0.5 * (speedBefore + speedAfter), ctx.direction, ctx.simTimeStep, ctx.position);
+      ctx.speed = speedAfter;
+      if (ctx.speed <= 1e-6) {
+        ctx.speed = 0.0;
+        return makeTurning();
+      }
+      return makeDecelerating();
+    }
+
+    const double speedBefore = ctx.speed;
+    const double speedAfter = std::min(ctx.attackSpeed, speedBefore + acceleration * ctx.simTimeStep);
+    advanceAlongHeading(0.5 * (speedBefore + speedAfter), ctx.direction, ctx.simTimeStep, ctx.position);
+    ctx.speed = speedAfter;
+    if (ctx.speed >= ctx.attackSpeed - 1e-6) {
+      ctx.speed = ctx.attackSpeed;
+      return makeMoving();
+    }
+    return nullptr;
+  }
+
+  const char *name() const override { return "Accelerating"; }
+  int code() const override { return DRONE_STATE_ACCELERATING; }
+  bool canRelease() const override { return true; }
+  bool isTurning() const override { return false; }
+  double estimateStopTime(const DroneContext &ctx) const override
+  {
+    const double acceleration = currentAcceleration(ctx);
+    if (acceleration <= kEpsilon) {
+      return 1e9;
+    }
+    return ctx.speed / acceleration;
+  }
+};
+
+std::unique_ptr<IDroneState> makeStopped() { return std::make_unique<StateStopped>(); }
+std::unique_ptr<IDroneState> makeAccelerating() { return std::make_unique<StateAccelerating>(); }
+std::unique_ptr<IDroneState> makeDecelerating() { return std::make_unique<StateDecelerating>(); }
+std::unique_ptr<IDroneState> makeTurning() { return std::make_unique<StateTurning>(); }
+std::unique_ptr<IDroneState> makeMoving() { return std::make_unique<StateMoving>(); }
 }  // namespace
 
 double wrapAngle(double radians)
@@ -58,93 +239,23 @@ double angleDelta(double fromRadians, double toRadians)
   return wrapAngle(toRadians - fromRadians);
 }
 
-double computeTimeToStop(DroneState state, double speed, double acceleration, double angularSpeed, double remainingTurnRadians)
+double computeTimeToStop(const IDroneState &state, const DroneContext &ctx)
 {
-  switch (state) {
-    case DRONE_STOPPED:
-      return 0.0;
-    case DRONE_ACCELERATING:
-    case DRONE_DECELERATING:
-    case DRONE_MOVING:
-      if (acceleration <= kEpsilon) {
-        return 1e9;
-      }
-      return speed / acceleration;
-    case DRONE_TURNING:
-      if (angularSpeed <= kEpsilon) {
-        return 1e9;
-      }
-      return std::fabs(remainingTurnRadians) / angularSpeed;
-    default:
-      return 0.0;
-  }
+  return state.estimateStopTime(ctx);
 }
 
-void updateDrone(double simTimeStep,
-                 double desiredDirection,
-                 double turnThresholdRadians,
-                 double attackSpeed,
-                 double accelerationPath,
-                 double angularSpeedRadiansPerSec,
-                 DroneState &state,
-                 double &speed,
-                 double &direction,
-                 Coord &position)
+std::unique_ptr<IDroneState> createInitialDroneState()
 {
-  const double acceleration = (accelerationPath > kEpsilon) ? (attackSpeed * attackSpeed) / (2.0 * accelerationPath) : 0.0;
+  return makeStopped();
+}
 
-  double delta = angleDelta(direction, desiredDirection);
-  const double angularStep = angularSpeedRadiansPerSec * simTimeStep;
-
-  switch (state) {
-    case DRONE_STOPPED:
-      if (std::fabs(delta) > turnThresholdRadians) {
-        state = DRONE_TURNING;
-      }
-      else {
-        state = DRONE_ACCELERATING;
-      }
-      break;
-    case DRONE_TURNING:
-      direction = rotateToward(direction, desiredDirection, angularStep);
-      delta = angleDelta(direction, desiredDirection);
-      if (std::fabs(delta) < 1e-4) {
-        state = DRONE_ACCELERATING;
-      }
-      break;
-    case DRONE_DECELERATING:
-      decelerateThisStep(simTimeStep, acceleration, state, speed, direction, position);
-      break;
-    case DRONE_ACCELERATING:
-      if (acceleration <= kEpsilon) {
-        speed = attackSpeed;
-        state = DRONE_MOVING;
-        break;
-      }
-      if (std::fabs(delta) > turnThresholdRadians && speed > 1e-3) {
-        decelerateThisStep(simTimeStep, acceleration, state, speed, direction, position);
-        break;
-      }
-      {
-        const double speedBefore = speed;
-        const double speedAfter = std::min(attackSpeed, speedBefore + acceleration * simTimeStep);
-        advanceAlongHeading(0.5 * (speedBefore + speedAfter), direction, simTimeStep, position);
-        speed = speedAfter;
-        if (speed >= attackSpeed - 1e-6) {
-          speed = attackSpeed;
-          state = DRONE_MOVING;
-        }
-      }
-      break;
-    case DRONE_MOVING:
-      if (std::fabs(delta) > turnThresholdRadians) {
-        decelerateThisStep(simTimeStep, acceleration, state, speed, direction, position);
-        break;
-      }
-      direction = rotateToward(direction, desiredDirection, angularStep);
-      advanceAlongHeading(speed, direction, simTimeStep, position);
-      break;
-    default:
-      break;
+void updateDrone(std::unique_ptr<IDroneState> &state, DroneContext &ctx)
+{
+  if (!state) {
+    state = createInitialDroneState();
+  }
+  std::unique_ptr<IDroneState> next = state->execute(ctx);
+  if (next) {
+    state = std::move(next);
   }
 }

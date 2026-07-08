@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "domain_types.hpp"
+#include "drone_kinematics.hpp"
 
 class IBallisticSolver;
 class IConfigLoader;
@@ -54,7 +55,7 @@ private:
   double acceleration_;
 
   Coord dronePos_;
-  DroneState droneState_;
+  std::unique_ptr<IDroneState> droneState_;
   double speed_;
   double direction_;
   double currentTime_;

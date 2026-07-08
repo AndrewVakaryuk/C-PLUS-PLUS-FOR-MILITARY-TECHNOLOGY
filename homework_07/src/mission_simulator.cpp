@@ -4,7 +4,6 @@
 #include <iostream>
 #include <utility>
 
-#include "drone_kinematics.hpp"
 #include "interfaces/i_ballistic_solver.hpp"
 #include "interfaces/i_config_loader.hpp"
 #include "interfaces/i_target_provider.hpp"
@@ -27,9 +26,9 @@ bool projectileMetricsAtSpeed(const IBallisticSolver &solver,
   return solver.projectileMetrics(altitude, ammo, dropSpeed, flightTime, horizontalRange);
 }
 
-bool isReadyToRelease(DroneState state, double speed, double attackSpeed)
+bool isReadyToRelease(const IDroneState &state, double speed, double attackSpeed)
 {
-  if (state == DRONE_STOPPED || state == DRONE_TURNING) {
+  if (!state.canRelease()) {
     return false;
   }
   return speed >= attackSpeed * kMinReleaseSpeedRatio - kEpsilon;
@@ -130,7 +129,7 @@ MissionSimulator::MissionSimulator(std::unique_ptr<IConfigLoader> configLoader,
   , turnThreshold_(0.0)
   , hitRadius_(0.0)
   , acceleration_(0.0)
-  , droneState_(DRONE_STOPPED)
+  , droneState_(createInitialDroneState())
   , speed_(0.0)
   , direction_(0.0)
   , currentTime_(0.0)
@@ -199,7 +198,7 @@ void MissionSimulator::resetSimulationState()
   acceleration_ = (attackSpeed_ * attackSpeed_) / (2.0 * accelerationPath_);
 
   dronePos_ = config_.startPos;
-  droneState_ = DRONE_STOPPED;
+  droneState_ = createInitialDroneState();
   speed_ = 0.0;
   direction_ = static_cast<double>(config_.initialDir);
   currentTime_ = 0.0;
@@ -215,7 +214,16 @@ bool MissionSimulator::hasNext() const
 
 bool MissionSimulator::selectBestTarget(int &bestIndex, Coord &bestFirePoint) const
 {
-  const double linearStopTime = computeTimeToStop(droneState_, speed_, acceleration_, angularSpeed_, 0.0);
+  DroneContext stopCtx{simTimeStep_,
+                       direction_,
+                       turnThreshold_,
+                       attackSpeed_,
+                       accelerationPath_,
+                       angularSpeed_,
+                       const_cast<double &>(speed_),
+                       const_cast<double &>(direction_),
+                       const_cast<Coord &>(dronePos_)};
+  const double linearStopTime = computeTimeToStop(*droneState_, stopCtx);
 
   double bestScore = 1e300;
   bestIndex = -1;
@@ -230,7 +238,7 @@ bool MissionSimulator::selectBestTarget(int &bestIndex, Coord &bestFirePoint) co
 
     double penalty = 0.0;
     if (i != activeTarget_) {
-      if (droneState_ == DRONE_TURNING) {
+      if (droneState_->isTurning()) {
         const double aimDirection = std::atan2(leadSolution.dropPoint.y - dronePos_.y, leadSolution.dropPoint.x - dronePos_.x);
         penalty = std::fabs(angleDelta(direction_, aimDirection)) / angularSpeed_;
       }
@@ -282,7 +290,7 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
 
   Coord hitAimPointNow = aimPointNow;
   Coord hitPredictedTargetNow = predictedTargetNow;
-  const bool canHitNow = isReadyToRelease(droneState_, speed_, attackSpeed_) &&
+  const bool canHitNow = isReadyToRelease(*droneState_, speed_, attackSpeed_) &&
                          computeAimAndPrediction(*solver_,
                                                  ammo_,
                                                  static_cast<float>(speed_),
@@ -303,7 +311,7 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
   SimStep record{};
   record.pos = dronePos_;
   record.direction = static_cast<float>(direction_);
-  record.state = static_cast<int>(droneState_);
+  record.state = droneState_->code();
   record.targetIdx = bestIndex;
   record.dropPoint = bestFirePoint;
   record.aimPoint = aimPointNow;
@@ -321,16 +329,16 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
     return SimulationStepResult::Hit;
   }
 
-  updateDrone(simTimeStep_,
-              desiredDirection,
-              turnThreshold_,
-              attackSpeed_,
-              accelerationPath_,
-              angularSpeed_,
-              droneState_,
-              speed_,
-              direction_,
-              dronePos_);
+  DroneContext droneCtx{simTimeStep_,
+                        desiredDirection,
+                        turnThreshold_,
+                        attackSpeed_,
+                        accelerationPath_,
+                        angularSpeed_,
+                        speed_,
+                        direction_,
+                        dronePos_};
+  updateDrone(droneState_, droneCtx);
 
   const double timeAfterStep = currentTime_ + simTimeStep_;
 
@@ -355,7 +363,7 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
 
   Coord hitAimPointAfter = aimPointAfter;
   Coord hitPredictedTargetAfter = predictedTargetAfter;
-  const bool canHitAfter = isReadyToRelease(droneState_, speed_, attackSpeed_) &&
+  const bool canHitAfter = isReadyToRelease(*droneState_, speed_, attackSpeed_) &&
                            computeAimAndPrediction(*solver_,
                                                    ammo_,
                                                    static_cast<float>(speed_),
@@ -378,7 +386,7 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
     SimStep afterRecord = record;
     afterRecord.pos = dronePos_;
     afterRecord.direction = static_cast<float>(direction_);
-    afterRecord.state = static_cast<int>(droneState_);
+    afterRecord.state = droneState_->code();
     afterRecord.aimPoint = hitAimPointAfter;
     afterRecord.predictedTarget = hitPredictedTargetAfter;
     steps.push_back(afterRecord);
