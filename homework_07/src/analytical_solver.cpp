@@ -22,6 +22,25 @@ DropSolution AnalyticalSolver::solve(const Coord &dronePos,
   return result;
 }
 
+bool AnalyticalSolver::projectileMetrics(float altitude,
+                                         const AmmoParams &ammo,
+                                         float dropSpeed,
+                                         double &flightTime,
+                                         double &horizontalRange) const
+{
+  if (dropSpeed <= 0.0f || altitude <= 0.0f) {
+    return false;
+  }
+
+  flightTime = computeTimeOfFlight(ammo.mass, ammo.drag, ammo.lift, dropSpeed, altitude);
+  if (flightTime < 0.0) {
+    return false;
+  }
+
+  horizontalRange = computeHorizontalDistance(ammo.mass, ammo.drag, ammo.lift, flightTime, dropSpeed);
+  return true;
+}
+
 bool AnalyticalSolver::solveLead(const Coord &dronePos,
                                  double currentTimeSeconds,
                                  int targetIndex,

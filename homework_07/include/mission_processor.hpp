@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "domain_types.hpp"
 
 class IBallisticSolver;
@@ -10,18 +12,20 @@ class ITargetProvider;
 // Production path uses MissionSimulator (time-stepped mission until hit).
 class MissionProcessor {
 public:
-  MissionProcessor(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver);
+  MissionProcessor(std::unique_ptr<IConfigLoader> configLoader,
+                   std::unique_ptr<ITargetProvider> targetProvider,
+                   std::unique_ptr<IBallisticSolver> solver);
 
   bool init(const char *configSource);
   bool hasNext() const;
   bool step(DropSolution &result);
   void reset();
-  void changeSolver(IBallisticSolver *solver);
+  void changeSolver(std::unique_ptr<IBallisticSolver> solver);
 
 private:
-  IConfigLoader *configLoader_;
-  ITargetProvider *targetProvider_;
-  IBallisticSolver *solver_;
+  std::unique_ptr<IConfigLoader> configLoader_;
+  std::unique_ptr<ITargetProvider> targetProvider_;
+  std::unique_ptr<IBallisticSolver> solver_;
   DroneConfig config_;
   AmmoParams ammo_;
   int currentTargetIndex_;

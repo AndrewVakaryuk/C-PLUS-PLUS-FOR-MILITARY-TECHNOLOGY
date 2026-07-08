@@ -1,15 +1,17 @@
 #pragma once
 
+#include <memory>
+
 class IBallisticSolver;
 class IConfigLoader;
 class ITargetProvider;
 
-enum class SolverType { ANALYTICAL };
+enum class SolverType { ANALYTICAL, TABLE };
 
 enum class ProviderType { JSON };
 
 enum class LoaderType { FILE };
 
-IBallisticSolver *createSolver(SolverType type);
-ITargetProvider *createProvider(ProviderType type, const char *param);
-IConfigLoader *createLoader(LoaderType type);
+std::unique_ptr<IBallisticSolver> createSolver(SolverType type);
+std::unique_ptr<ITargetProvider> createProvider(ProviderType type, const char *param);
+std::unique_ptr<IConfigLoader> createLoader(LoaderType type);

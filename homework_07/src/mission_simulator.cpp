@@ -2,8 +2,8 @@
 
 #include <cmath>
 #include <iostream>
+#include <utility>
 
-#include "ballistics.hpp"
 #include "drone_kinematics.hpp"
 #include "interfaces/i_ballistic_solver.hpp"
 #include "interfaces/i_config_loader.hpp"
@@ -17,25 +17,14 @@ constexpr double kEpsilon = 1e-9;
 // high-speed accel/decel phases that the extreme scenario needs.
 constexpr double kMinReleaseSpeedRatio = 0.5;
 
-bool projectileMetricsAtSpeed(double mass,
-                              double drag,
-                              double lift,
-                              double dropSpeed,
-                              double altitude,
+bool projectileMetricsAtSpeed(const IBallisticSolver &solver,
+                              const AmmoParams &ammo,
+                              float altitude,
+                              float dropSpeed,
                               double &flightTime,
                               double &horizontalRange)
 {
-  if (dropSpeed <= kEpsilon) {
-    return false;
-  }
-
-  flightTime = computeTimeOfFlight(mass, drag, lift, dropSpeed, altitude);
-  if (flightTime < 0.0) {
-    return false;
-  }
-
-  horizontalRange = computeHorizontalDistance(mass, drag, lift, flightTime, dropSpeed);
-  return true;
+  return solver.projectileMetrics(altitude, ammo, dropSpeed, flightTime, horizontalRange);
 }
 
 bool isReadyToRelease(DroneState state, double speed, double attackSpeed)
@@ -54,11 +43,10 @@ double displayDropSpeed(double speed, double attackSpeed)
   return speed;
 }
 
-bool computeAimAndPrediction(double mass,
-                             double drag,
-                             double lift,
-                             double dropSpeed,
-                             double altitude,
+bool computeAimAndPrediction(const IBallisticSolver &solver,
+                             const AmmoParams &ammo,
+                             float dropSpeed,
+                             float altitude,
                              const Coord &dronePos,
                              double direction,
                              double predictionTime,
@@ -69,7 +57,7 @@ bool computeAimAndPrediction(double mass,
 {
   double flightTime = 0.0;
   double range = 0.0;
-  if (!projectileMetricsAtSpeed(mass, drag, lift, dropSpeed, altitude, flightTime, range)) {
+  if (!projectileMetricsAtSpeed(solver, ammo, altitude, dropSpeed, flightTime, range)) {
     return false;
   }
 
@@ -78,12 +66,11 @@ bool computeAimAndPrediction(double mass,
   return targetProvider.interpolateTargetPosition(targetIndex, predictionTime + flightTime, predictedTarget);
 }
 
-bool computeAimAndPredictionWithFallback(double mass,
-                                         double drag,
-                                         double lift,
-                                         double preferredDropSpeed,
-                                         double fallbackDropSpeed,
-                                         double altitude,
+bool computeAimAndPredictionWithFallback(const IBallisticSolver &solver,
+                                         const AmmoParams &ammo,
+                                         float preferredDropSpeed,
+                                         float fallbackDropSpeed,
+                                         float altitude,
                                          const Coord &dronePos,
                                          double direction,
                                          double predictionTime,
@@ -92,9 +79,8 @@ bool computeAimAndPredictionWithFallback(double mass,
                                          Coord &aimPoint,
                                          Coord &predictedTarget)
 {
-  if (computeAimAndPrediction(mass,
-                              drag,
-                              lift,
+  if (computeAimAndPrediction(solver,
+                              ammo,
                               preferredDropSpeed,
                               altitude,
                               dronePos,
@@ -111,9 +97,8 @@ bool computeAimAndPredictionWithFallback(double mass,
     return false;
   }
 
-  return computeAimAndPrediction(mass,
-                                 drag,
-                                 lift,
+  return computeAimAndPrediction(solver,
+                                 ammo,
                                  fallbackDropSpeed,
                                  altitude,
                                  dronePos,
@@ -126,10 +111,12 @@ bool computeAimAndPredictionWithFallback(double mass,
 }
 }  // namespace
 
-MissionSimulator::MissionSimulator(IConfigLoader *configLoader, ITargetProvider *targetProvider, IBallisticSolver *solver)
-  : configLoader_(configLoader)
-  , targetProvider_(targetProvider)
-  , solver_(solver)
+MissionSimulator::MissionSimulator(std::unique_ptr<IConfigLoader> configLoader,
+                                   std::unique_ptr<ITargetProvider> targetProvider,
+                                   std::unique_ptr<IBallisticSolver> solver)
+  : configLoader_(std::move(configLoader))
+  , targetProvider_(std::move(targetProvider))
+  , solver_(std::move(solver))
   , initialized_(false)
   , targetCount_(0)
   , attackSpeed_(0.0)
@@ -186,7 +173,9 @@ bool MissionSimulator::validateSimulationParameters() const
     return false;
   }
 
-  if (computeTimeOfFlight(mass_, drag_, lift_, attackSpeed_, altitude_) < 0.0) {
+  double flightTime = 0.0;
+  double horizontalRange = 0.0;
+  if (!solver_->projectileMetrics(config_.altitude, ammo_, config_.attackSpeed, flightTime, horizontalRange)) {
     std::cerr << "Error: invalid ballistic flight time at attack speed" << std::endl;
     return false;
   }
@@ -275,12 +264,11 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
   const double recordDropSpeed = displayDropSpeed(speed_, attackSpeed_);
   Coord aimPointNow = dronePos_;
   Coord predictedTargetNow = dronePos_;
-  if (!computeAimAndPredictionWithFallback(mass_,
-                                           drag_,
-                                           lift_,
-                                           recordDropSpeed,
-                                           attackSpeed_,
-                                           altitude_,
+  if (!computeAimAndPredictionWithFallback(*solver_,
+                                           ammo_,
+                                           static_cast<float>(recordDropSpeed),
+                                           config_.attackSpeed,
+                                           config_.altitude,
                                            dronePos_,
                                            direction_,
                                            currentTime_,
@@ -295,11 +283,10 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
   Coord hitAimPointNow = aimPointNow;
   Coord hitPredictedTargetNow = predictedTargetNow;
   const bool canHitNow = isReadyToRelease(droneState_, speed_, attackSpeed_) &&
-                         computeAimAndPrediction(mass_,
-                                                 drag_,
-                                                 lift_,
-                                                 speed_,
-                                                 altitude_,
+                         computeAimAndPrediction(*solver_,
+                                                 ammo_,
+                                                 static_cast<float>(speed_),
+                                                 config_.altitude,
                                                  dronePos_,
                                                  direction_,
                                                  currentTime_,
@@ -350,12 +337,11 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
   const double recordDropSpeedAfter = displayDropSpeed(speed_, attackSpeed_);
   Coord aimPointAfter = dronePos_;
   Coord predictedTargetAfter = dronePos_;
-  if (!computeAimAndPredictionWithFallback(mass_,
-                                           drag_,
-                                           lift_,
-                                           recordDropSpeedAfter,
-                                           attackSpeed_,
-                                           altitude_,
+  if (!computeAimAndPredictionWithFallback(*solver_,
+                                           ammo_,
+                                           static_cast<float>(recordDropSpeedAfter),
+                                           config_.attackSpeed,
+                                           config_.altitude,
                                            dronePos_,
                                            direction_,
                                            timeAfterStep,
@@ -370,11 +356,10 @@ SimulationStepResult MissionSimulator::step(std::vector<SimStep> &steps)
   Coord hitAimPointAfter = aimPointAfter;
   Coord hitPredictedTargetAfter = predictedTargetAfter;
   const bool canHitAfter = isReadyToRelease(droneState_, speed_, attackSpeed_) &&
-                           computeAimAndPrediction(mass_,
-                                                   drag_,
-                                                   lift_,
-                                                   speed_,
-                                                   altitude_,
+                           computeAimAndPrediction(*solver_,
+                                                   ammo_,
+                                                   static_cast<float>(speed_),
+                                                   config_.altitude,
                                                    dronePos_,
                                                    direction_,
                                                    timeAfterStep,
