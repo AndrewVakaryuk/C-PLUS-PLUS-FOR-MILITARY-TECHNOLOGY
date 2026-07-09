@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -47,6 +48,7 @@ void assertSimulationJsonShape(const json &simulation)
   EXPECT_TRUE(firstStep.contains("dropPoint"));
   EXPECT_TRUE(firstStep.contains("aimPoint"));
   EXPECT_TRUE(firstStep.contains("predictedTarget"));
+  EXPECT_TRUE(firstStep.contains("timeSecSinceStart"));
 }
 
 }  // namespace
@@ -68,6 +70,7 @@ TEST_P(Homework07ScenarioE2ETest, RunMissionDemoProducesSimulationJson)
   fs::create_directories(outputDir, ec);
   fs::remove(outputFile, ec);
 
+  setenv("HW7_SYNC_MISSION", "1", 1);
   ASSERT_EQ(runMissionDemo(dataDir.c_str(), outputDir.string().c_str()), 0) << scenarioName;
   ASSERT_TRUE(fs::exists(outputFile)) << scenarioName;
 
