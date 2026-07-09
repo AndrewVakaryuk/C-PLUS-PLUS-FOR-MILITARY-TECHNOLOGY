@@ -11,7 +11,8 @@ add_executable(
     homework_07_baseline
     src/main.cpp
     src/mission_demo.cpp
-    src/mission_simulator.cpp
+    src/drone_physics.cpp
+    src/thread_safe_target_provider.cpp
     src/simulation_json_writer.cpp
     src/ballistics.cpp
     src/drone_kinematics.cpp
@@ -40,7 +41,8 @@ if(NOT CMAKE_CROSSCOMPILING)
         HW7_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output" ENABLE_LOG=0 ENABLE_DEBUG=0)
     set(HW7_REFACTORED_SOURCES
         src/mission_demo.cpp
-        src/mission_simulator.cpp
+        src/drone_physics.cpp
+        src/thread_safe_target_provider.cpp
         src/simulation_json_writer.cpp
         src/ballistics.cpp
         src/drone_kinematics.cpp

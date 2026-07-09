@@ -8,7 +8,7 @@ class ITargetProvider;
 
 enum class SolverType { ANALYTICAL, TABLE };
 
-enum class ProviderType { JSON };
+enum class ProviderType { JSON, THREAD_SAFE };
 
 enum class LoaderType { FILE };
 

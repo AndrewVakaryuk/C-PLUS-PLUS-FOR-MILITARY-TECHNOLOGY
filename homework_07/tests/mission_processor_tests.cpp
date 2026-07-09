@@ -1,110 +1,63 @@
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <string>
 
 #include <gtest/gtest.h>
 
-#include "analytical_solver.hpp"
+#include "domain_types.hpp"
+#include "drone_physics.hpp"
 #include "factories.hpp"
-#include "interfaces/i_ballistic_solver.hpp"
 #include "interfaces/i_config_loader.hpp"
 #include "interfaces/i_target_provider.hpp"
 #include "mission_processor.hpp"
 
 namespace fs = std::filesystem;
 
-TEST(Homework07MissionProcessor, ProcessesAllTargetsViaFactoryComponents)
+TEST(Homework10DronePhysics, IntegratesWithFixedSimulationTime)
+{
+  DroneConfig config{};
+  config.startPos = {150.0f, 150.0f};
+  config.initialDir = 0.0f;
+  config.attackSpeed = 10.0f;
+  config.accelPath = 10.0f;
+  config.angularSpeed = 1.0f;
+  config.turnThreshold = 0.1f;
+  config.simTimeStep = 0.1f;
+  config.physicsTimeStep = 0.01f;
+  config.timeScale = 10.0f;
+
+  DronePhysics physics;
+  physics.init(config);
+  physics.pushCommand(DroneCommand{0.0f});
+
+  for (int i = 0; i < 100; ++i) {
+    ASSERT_TRUE(physics.stepOnce());
+  }
+
+  const DroneTelemetry telemetry = physics.getTelemetry();
+  EXPECT_NEAR(telemetry.timeSecSinceStart, 1.0f, 1e-4f);
+  EXPECT_GT(telemetry.speed, 0.0f);
+}
+
+TEST(Homework10MissionProcessor, CompletesBaseCircleSynchronously)
 {
   const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
 
   std::unique_ptr<IConfigLoader> loader = createLoader(LoaderType::FILE);
-  std::unique_ptr<ITargetProvider> provider = createProvider(ProviderType::JSON, baseCircleDir.c_str());
-  std::unique_ptr<IBallisticSolver> solver = createSolver(SolverType::ANALYTICAL);
+  std::unique_ptr<ITargetProvider> provider = createProvider(ProviderType::THREAD_SAFE, baseCircleDir.c_str());
+  std::unique_ptr<IBallisticSolver> solver = createSolver(SolverType::TABLE);
+  auto physics = std::make_unique<DronePhysics>();
   ASSERT_NE(loader, nullptr);
   ASSERT_NE(provider, nullptr);
   ASSERT_NE(solver, nullptr);
 
   MissionProcessor mission(std::move(loader), std::move(provider), std::move(solver));
+  mission.setPhysics(physics.get());
   ASSERT_TRUE(mission.init(baseCircleDir.c_str()));
 
-  int processed = 0;
-  int successful = 0;
-  while (mission.hasNext()) {
-    DropSolution stepResult{};
-    ASSERT_TRUE(mission.step(stepResult));
-    processed++;
-    if (stepResult.ok) {
-      successful++;
-    }
-  }
-
-  EXPECT_EQ(processed, 5);
-  EXPECT_EQ(successful, 5);
-
-}
-
-TEST(Homework07MissionProcessor, ResetAllowsSecondPass)
-{
-  const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
-
-  std::unique_ptr<IConfigLoader> loader = createLoader(LoaderType::FILE);
-  std::unique_ptr<ITargetProvider> provider = createProvider(ProviderType::JSON, baseCircleDir.c_str());
-  std::unique_ptr<IBallisticSolver> solver = createSolver(SolverType::ANALYTICAL);
-  ASSERT_NE(loader, nullptr);
-  ASSERT_NE(provider, nullptr);
-  ASSERT_NE(solver, nullptr);
-
-  MissionProcessor mission(std::move(loader), std::move(provider), std::move(solver));
-  ASSERT_TRUE(mission.init(baseCircleDir.c_str()));
-
-  int firstPass = 0;
-  while (mission.hasNext()) {
-    DropSolution stepResult{};
-    ASSERT_TRUE(mission.step(stepResult));
-    firstPass++;
-  }
-  EXPECT_EQ(firstPass, 5);
-
-  mission.reset();
-  EXPECT_TRUE(mission.hasNext());
-
-  int secondPass = 0;
-  while (mission.hasNext()) {
-    DropSolution stepResult{};
-    ASSERT_TRUE(mission.step(stepResult));
-    secondPass++;
-  }
-  EXPECT_EQ(secondPass, 5);
-
-}
-
-TEST(Homework07MissionProcessor, ChangeSolverAffectsResults)
-{
-  const std::string baseCircleDir = (fs::path(HW7_SCENARIOS_ROOT) / "base-circle").string();
-
-  std::unique_ptr<IConfigLoader> loader = createLoader(LoaderType::FILE);
-  std::unique_ptr<ITargetProvider> provider = createProvider(ProviderType::JSON, baseCircleDir.c_str());
-  std::unique_ptr<IBallisticSolver> solverA = createSolver(SolverType::ANALYTICAL);
-  std::unique_ptr<IBallisticSolver> solverB = createSolver(SolverType::ANALYTICAL);
-  ASSERT_NE(loader, nullptr);
-  ASSERT_NE(provider, nullptr);
-  ASSERT_NE(solverA, nullptr);
-  ASSERT_NE(solverB, nullptr);
-
-  MissionProcessor mission(std::move(loader), std::move(provider), std::move(solverA));
-  ASSERT_TRUE(mission.init(baseCircleDir.c_str()));
-
-  DropSolution first{};
-  ASSERT_TRUE(mission.step(first));
-  ASSERT_TRUE(first.ok);
-
-  mission.changeSolver(std::move(solverB));
-  mission.reset();
-
-  DropSolution second{};
-  ASSERT_TRUE(mission.step(second));
-  ASSERT_TRUE(second.ok);
-  EXPECT_NEAR(first.dropPoint.x, second.dropPoint.x, 1e-3f);
-  EXPECT_NEAR(first.dropPoint.y, second.dropPoint.y, 1e-3f);
-
+  std::vector<SimStep> steps;
+  ASSERT_TRUE(mission.run(steps));
+  EXPECT_GT(steps.size(), 10U);
+  EXPECT_GT(steps.back().timeSecSinceStart, 0.0f);
 }

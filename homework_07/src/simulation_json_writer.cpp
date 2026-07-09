@@ -26,6 +26,7 @@ bool writeSimulationJson(const char *outputDir, const std::vector<SimStep> &step
     stepJson["dropPoint"] = {{"x", step.dropPoint.x}, {"y", step.dropPoint.y}};
     stepJson["aimPoint"] = {{"x", step.aimPoint.x}, {"y", step.aimPoint.y}};
     stepJson["predictedTarget"] = {{"x", step.predictedTarget.x}, {"y", step.predictedTarget.y}};
+    stepJson["timeSecSinceStart"] = step.timeSecSinceStart;
     out["steps"].push_back(stepJson);
   }
 

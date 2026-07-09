@@ -40,6 +40,8 @@ bool FileConfigLoader::loadConfigJson(const std::string &configPath)
     config_.turnThreshold = j.at("drone").at("turnThreshold").get<float>();
     config_.simTimeStep = j.at("simulation").at("timeStep").get<float>();
     config_.hitRadius = j.at("simulation").at("hitRadius").get<float>();
+    config_.physicsTimeStep = j["simulation"].value("physicsTimeStep", 0.01f);
+    config_.timeScale = j["simulation"].value("timeScale", 10.0f);
     config_.arrayTimeStep = j.at("targetArrayTimeStep").get<float>();
     config_.ammoName = j.at("ammo").get<std::string>();
   }

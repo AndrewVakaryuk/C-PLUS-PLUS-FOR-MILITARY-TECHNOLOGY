@@ -6,6 +6,7 @@
 #include "file_config_loader.hpp"
 #include "json_target_provider.hpp"
 #include "table_solver.hpp"
+#include "thread_safe_target_provider.hpp"
 
 std::unique_ptr<IBallisticSolver> createSolver(SolverType type)
 {
@@ -27,6 +28,11 @@ std::unique_ptr<ITargetProvider> createProvider(ProviderType type, const char *p
         return nullptr;
       }
       return std::make_unique<JsonTargetProvider>(param);
+    case ProviderType::THREAD_SAFE:
+      if (param == nullptr) {
+        return nullptr;
+      }
+      return std::make_unique<ThreadSafeTargetProvider>(param);
     default:
       return nullptr;
   }

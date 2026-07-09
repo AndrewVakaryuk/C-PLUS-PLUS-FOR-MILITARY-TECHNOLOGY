@@ -26,6 +26,8 @@ struct DroneConfig {
   float hitRadius;
   float angularSpeed;
   float turnThreshold;
+  float physicsTimeStep;
+  float timeScale;
 };
 
 struct SimStep {
@@ -36,6 +38,21 @@ struct SimStep {
   Coord dropPoint;
   Coord aimPoint;
   Coord predictedTarget;
+  float timeSecSinceStart;
+};
+
+struct DroneCommand {
+  float desiredDirection;
+};
+
+struct DroneTelemetry {
+  Coord pos;
+  float direction;
+  float speed;
+  int stateCode;
+  bool canRelease;
+  bool isTurning;
+  float timeSecSinceStart;
 };
 
 struct TargetSnapshot {
